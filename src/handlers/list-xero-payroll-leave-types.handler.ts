@@ -1,6 +1,7 @@
 import {
   MCPXeroClient,
   getActiveXeroClient,
+  getActiveXeroTenantId,
   clientContext,
   resolveXeroClient,
 } from "../clients/xero-client.js";
@@ -17,7 +18,7 @@ async function fetchLeaveTypes(): Promise<LeaveType[] | null> {
   await activeClient.authenticate();
 
   const response = await activeClient.payrollNZApi.getLeaveTypes(
-    activeClient.tenantId,
+    getActiveXeroTenantId(),
     undefined, // page
     undefined, // pageSize
     getClientHeaders(),

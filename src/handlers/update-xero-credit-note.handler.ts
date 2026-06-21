@@ -1,6 +1,7 @@
 import {
   MCPXeroClient,
   getActiveXeroClient,
+  getActiveXeroTenantId,
   clientContext,
   resolveXeroClient,
 } from "../clients/xero-client.js";
@@ -23,7 +24,7 @@ async function getCreditNote(creditNoteId: string): Promise<CreditNote | null> {
 
   // First, get the current credit note to check its status
   const response = await activeClient.accountingApi.getCreditNote(
-    activeClient.tenantId,
+    getActiveXeroTenantId(),
     creditNoteId, // creditNoteId
     undefined, // unitdp
     getClientHeaders(), // options
@@ -48,7 +49,7 @@ async function updateCreditNote(
   };
 
   const response = await activeClient.accountingApi.updateCreditNote(
-    activeClient.tenantId,
+    getActiveXeroTenantId(),
     creditNoteId, // creditNoteId
     {
       creditNotes: [creditNote],

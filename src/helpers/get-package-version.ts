@@ -1,6 +1,8 @@
-import { readFileSync } from 'fs';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+import { readFileSync } from "fs";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
+
+import { getActiveXeroForkLogger } from "../runtime/xero-fork-context.js";
 
 /**
  * Gets the package version from package.json
@@ -9,13 +11,13 @@ import { dirname, join } from 'path';
 export function getPackageVersion(): string {
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = dirname(__filename);
-  const packagePath = join(__dirname, '../../package.json');
-  
+  const packagePath = join(__dirname, "../../package.json");
+
   try {
-    const packageJson = JSON.parse(readFileSync(packagePath, 'utf-8'));
+    const packageJson = JSON.parse(readFileSync(packagePath, "utf-8"));
     return packageJson.version;
   } catch (error) {
-    console.warn('Failed to read package version:', error);
-    return '0.0.0'; // Fallback version
+    getActiveXeroForkLogger().warn("Failed to read package version", error);
+    return "0.0.0";
   }
-} 
+}

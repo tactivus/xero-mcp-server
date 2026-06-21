@@ -1,6 +1,7 @@
 import {
   MCPXeroClient,
   getActiveXeroClient,
+  getActiveXeroTenantId,
   clientContext,
   resolveXeroClient,
 } from "../clients/xero-client.js";
@@ -62,7 +63,7 @@ async function createItem(itemDetails: ItemDetails): Promise<Item | null> {
   };
 
   const response = await activeClient.accountingApi.createItems(
-    activeClient.tenantId,
+    getActiveXeroTenantId(),
     items, // items
     true, // summarizeErrors
     undefined, // unitdp

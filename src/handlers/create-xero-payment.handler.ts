@@ -1,6 +1,7 @@
 import {
   MCPXeroClient,
   getActiveXeroClient,
+  getActiveXeroTenantId,
   clientContext,
   resolveXeroClient,
 } from "../clients/xero-client.js";
@@ -40,7 +41,7 @@ async function createPayment({
   };
 
   const response = await activeClient.accountingApi.createPayment(
-    activeClient.tenantId,
+    getActiveXeroTenantId(),
     payment,
     undefined, // idempotencyKey
     getClientHeaders(), // options

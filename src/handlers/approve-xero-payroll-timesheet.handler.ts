@@ -3,6 +3,7 @@ import { Timesheet } from "xero-node/dist/gen/model/payroll-nz/timesheet.js";
 import {
   MCPXeroClient,
   getActiveXeroClient,
+  getActiveXeroTenantId,
   clientContext,
   resolveXeroClient,
 } from "../clients/xero-client.js";
@@ -17,7 +18,7 @@ async function approveTimesheet(
 
   // Call the approveTimesheet endpoint from the PayrollNZApi
   const approvedTimesheet = await activeClient.payrollNZApi.approveTimesheet(
-    activeClient.tenantId,
+    getActiveXeroTenantId(),
     timesheetID,
   );
 

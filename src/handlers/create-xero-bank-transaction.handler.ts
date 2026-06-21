@@ -1,6 +1,7 @@
 import {
   MCPXeroClient,
   getActiveXeroClient,
+  getActiveXeroTenantId,
   clientContext,
   resolveXeroClient,
 } from "../clients/xero-client.js";
@@ -45,7 +46,7 @@ async function createBankTransaction(
   };
 
   const response = await activeClient.accountingApi.createBankTransactions(
-    activeClient.tenantId, // xeroTenantId
+    getActiveXeroTenantId(), // xeroTenantId
     {
       bankTransactions: [bankTransaction],
     }, // bankTransactions

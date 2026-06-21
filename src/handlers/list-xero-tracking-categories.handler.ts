@@ -1,6 +1,7 @@
 import {
   MCPXeroClient,
   getActiveXeroClient,
+  getActiveXeroTenantId,
   clientContext,
   resolveXeroClient,
 } from "../clients/xero-client.js";
@@ -16,7 +17,7 @@ async function getTrackingCategories(
   await activeClient.authenticate();
 
   const response = await activeClient.accountingApi.getTrackingCategories(
-    activeClient.tenantId, // xeroTenantId
+    getActiveXeroTenantId(), // xeroTenantId
     undefined, // where
     undefined, // order
     includeArchived, // includeArchived

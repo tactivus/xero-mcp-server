@@ -1,6 +1,7 @@
 import {
   MCPXeroClient,
   getActiveXeroClient,
+  getActiveXeroTenantId,
   clientContext,
   resolveXeroClient,
 } from "../clients/xero-client.js";
@@ -54,7 +55,7 @@ async function updateContact(
   };
 
   const response = await activeClient.accountingApi.updateContact(
-    activeClient.tenantId,
+    getActiveXeroTenantId(),
     contactId, // contactId
     contacts, // contacts
     undefined, // idempotencyKey

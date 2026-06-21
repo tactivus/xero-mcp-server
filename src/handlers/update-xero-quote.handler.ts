@@ -1,6 +1,7 @@
 import {
   MCPXeroClient,
   getActiveXeroClient,
+  getActiveXeroTenantId,
   clientContext,
   resolveXeroClient,
 } from "../clients/xero-client.js";
@@ -23,7 +24,7 @@ async function getQuote(quoteId: string): Promise<Quote | undefined> {
 
   // First, get the current quote to check its status
   const response = await activeClient.accountingApi.getQuote(
-    activeClient.tenantId, // tenantId
+    getActiveXeroTenantId(), // tenantId
     quoteId, // quoteId
     getClientHeaders(), // options
   );
@@ -71,7 +72,7 @@ async function updateQuote(
   }
 
   const response = await activeClient.accountingApi.updateQuote(
-    activeClient.tenantId,
+    getActiveXeroTenantId(),
     quoteId, // quoteId
     {
       quotes: [quote],

@@ -1,6 +1,7 @@
 import {
   MCPXeroClient,
   getActiveXeroClient,
+  getActiveXeroTenantId,
   clientContext,
   resolveXeroClient,
 } from "../clients/xero-client.js";
@@ -18,7 +19,7 @@ async function getInvoices(
   await activeClient.authenticate();
 
   const invoices = await activeClient.accountingApi.getInvoices(
-    activeClient.tenantId,
+    getActiveXeroTenantId(),
     undefined, // ifModifiedSince
     undefined, // where
     "UpdatedDateUTC DESC", // order

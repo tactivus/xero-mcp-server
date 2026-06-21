@@ -1,6 +1,7 @@
 import {
   MCPXeroClient,
   getActiveXeroClient,
+  getActiveXeroTenantId,
   clientContext,
   resolveXeroClient,
 } from "../clients/xero-client.js";
@@ -37,7 +38,7 @@ async function createCreditNote(
   };
 
   const response = await activeClient.accountingApi.createCreditNotes(
-    activeClient.tenantId,
+    getActiveXeroTenantId(),
     {
       creditNotes: [creditNote],
     }, // creditNotes

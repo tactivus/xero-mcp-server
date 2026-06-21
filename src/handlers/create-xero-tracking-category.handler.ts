@@ -1,6 +1,7 @@
 import {
   MCPXeroClient,
   getActiveXeroClient,
+  getActiveXeroTenantId,
   clientContext,
   resolveXeroClient,
 } from "../clients/xero-client.js";
@@ -20,7 +21,7 @@ async function createTrackingCategory(
   };
 
   const response = await activeClient.accountingApi.createTrackingCategory(
-    activeClient.tenantId, // xeroTenantId
+    getActiveXeroTenantId(), // xeroTenantId
     trackingCategory,
     undefined, // idempotencyKey
     getClientHeaders(), // options

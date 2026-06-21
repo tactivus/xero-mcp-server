@@ -1,6 +1,7 @@
 import {
   MCPXeroClient,
   getActiveXeroClient,
+  getActiveXeroTenantId,
   clientContext,
   resolveXeroClient,
 } from "../clients/xero-client.js";
@@ -14,7 +15,7 @@ async function listAccounts(): Promise<Account[]> {
   await activeClient.authenticate();
 
   const response = await activeClient.accountingApi.getAccounts(
-    activeClient.tenantId,
+    getActiveXeroTenantId(),
     undefined, // ifModifiedSince
     undefined, // where
     undefined, // order

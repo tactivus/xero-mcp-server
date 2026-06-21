@@ -1,6 +1,7 @@
 import {
   MCPXeroClient,
   getActiveXeroClient,
+  getActiveXeroTenantId,
   clientContext,
   resolveXeroClient,
 } from "../clients/xero-client.js";
@@ -26,7 +27,7 @@ async function getBankTransaction(
   await activeClient.authenticate();
 
   const response = await activeClient.accountingApi.getBankTransaction(
-    activeClient.tenantId, // xeroTenantId
+    getActiveXeroTenantId(), // xeroTenantId
     bankTransactionId, // bankTransactionID
     undefined, // unitdp
     getClientHeaders(), // options
@@ -58,7 +59,7 @@ async function updateBankTransaction(
   };
 
   const response = await activeClient.accountingApi.updateBankTransaction(
-    activeClient.tenantId, // xeroTenantId
+    getActiveXeroTenantId(), // xeroTenantId
     bankTransactionId, // bankTransactionID
     { bankTransactions: [bankTransaction] }, // bankTransactions
     undefined, // unitdp

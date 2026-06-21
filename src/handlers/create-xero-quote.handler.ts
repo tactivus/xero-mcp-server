@@ -1,6 +1,7 @@
 import {
   MCPXeroClient,
   getActiveXeroClient,
+  getActiveXeroTenantId,
   clientContext,
   resolveXeroClient,
 } from "../clients/xero-client.js";
@@ -47,7 +48,7 @@ async function createQuote(
   };
 
   const response = await activeClient.accountingApi.createQuotes(
-    activeClient.tenantId,
+    getActiveXeroTenantId(),
     {
       quotes: [quote],
     }, // quotes

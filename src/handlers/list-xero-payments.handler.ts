@@ -1,6 +1,7 @@
 import {
   MCPXeroClient,
   getActiveXeroClient,
+  getActiveXeroTenantId,
   clientContext,
   resolveXeroClient,
 } from "../clients/xero-client.js";
@@ -47,7 +48,7 @@ async function getPayments(
     whereConditions.length > 0 ? whereConditions.join(" AND ") : undefined;
 
   const response = await activeClient.accountingApi.getPayments(
-    activeClient.tenantId,
+    getActiveXeroTenantId(),
     undefined, // ifModifiedSince
     where,
     "UpdatedDateUTC DESC", // order

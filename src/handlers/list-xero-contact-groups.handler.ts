@@ -1,6 +1,7 @@
 import {
   MCPXeroClient,
   getActiveXeroClient,
+  getActiveXeroTenantId,
   clientContext,
   resolveXeroClient,
 } from "../clients/xero-client.js";
@@ -17,7 +18,7 @@ async function getContactGroups(
 
   if (contactGroupId) {
     const response = await activeClient.accountingApi.getContactGroup(
-      activeClient.tenantId,
+      getActiveXeroTenantId(),
       contactGroupId,
       getClientHeaders(),
     );
@@ -25,7 +26,7 @@ async function getContactGroups(
   }
 
   const response = await activeClient.accountingApi.getContactGroups(
-    activeClient.tenantId,
+    getActiveXeroTenantId(),
     undefined, // where
     undefined, // order
     getClientHeaders(),

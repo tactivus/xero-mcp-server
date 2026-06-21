@@ -1,6 +1,7 @@
 import {
   MCPXeroClient,
   getActiveXeroClient,
+  getActiveXeroTenantId,
   clientContext,
   resolveXeroClient,
 } from "../clients/xero-client.js";
@@ -23,7 +24,7 @@ async function fetchEmployeeLeaveTypes(
   }
 
   const response = await activeClient.payrollNZApi.getEmployeeLeaveTypes(
-    activeClient.tenantId,
+    getActiveXeroTenantId(),
     employeeId,
     getClientHeaders(),
   );

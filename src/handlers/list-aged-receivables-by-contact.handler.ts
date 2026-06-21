@@ -1,6 +1,7 @@
 import {
   MCPXeroClient,
   getActiveXeroClient,
+  getActiveXeroTenantId,
   clientContext,
   resolveXeroClient,
 } from "../clients/xero-client.js";
@@ -20,7 +21,7 @@ async function listAgedReceivablesByContact(
 
   const response =
     await activeClient.accountingApi.getReportAgedReceivablesByContact(
-      activeClient.tenantId, // xeroTenantId
+      getActiveXeroTenantId(), // xeroTenantId
       contactId, // contactId
       reportDate, // date
       invoicesFromDate, // fromDate

@@ -1,6 +1,7 @@
 import {
   MCPXeroClient,
   getActiveXeroClient,
+  getActiveXeroTenantId,
   clientContext,
   resolveXeroClient,
 } from "../clients/xero-client.js";
@@ -17,7 +18,7 @@ async function getCreditNotes(
   await activeClient.authenticate();
 
   const response = await activeClient.accountingApi.getCreditNotes(
-    activeClient.tenantId,
+    getActiveXeroTenantId(),
     undefined, // ifModifiedSince
     contactId ? `Contact.ContactID=guid("${contactId}")` : undefined, // where
     "UpdatedDateUTC DESC", // order

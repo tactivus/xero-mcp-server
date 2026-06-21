@@ -1,6 +1,7 @@
 import {
   MCPXeroClient,
   getActiveXeroClient,
+  getActiveXeroTenantId,
   clientContext,
   resolveXeroClient,
 } from "../clients/xero-client.js";
@@ -14,7 +15,7 @@ async function getItems(page: number): Promise<Item[]> {
   await activeClient.authenticate();
 
   const items = await activeClient.accountingApi.getItems(
-    activeClient.tenantId,
+    getActiveXeroTenantId(),
     undefined, // ifModifiedSince
     undefined, // where
     undefined, // order
