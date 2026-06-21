@@ -1,41 +1,50 @@
-import { xeroClient } from "../clients/xero-client.js";
+import {
+  MCPXeroClient,
+  getActiveXeroClient,
+  clientContext,
+  resolveXeroClient,
+} from "../clients/xero-client.js";
 import { TrackingCategory } from "xero-node";
 import { getClientHeaders } from "../helpers/get-client-headers.js";
 import { XeroClientResponse } from "../types/tool-response.js";
 import { formatError } from "../helpers/format-error.js";
 
 async function getTrackingCategories(
-  includeArchived?: boolean
+  includeArchived?: boolean,
 ): Promise<TrackingCategory[]> {
-  await xeroClient.authenticate();
+  const activeClient = getActiveXeroClient();
+  await activeClient.authenticate();
 
-  const response = await xeroClient.accountingApi.getTrackingCategories(
-    xeroClient.tenantId, // xeroTenantId
+  const response = await activeClient.accountingApi.getTrackingCategories(
+    activeClient.tenantId, // xeroTenantId
     undefined, // where
     undefined, // order
     includeArchived, // includeArchived
-    getClientHeaders()
+    getClientHeaders(),
   );
 
   return response.body.trackingCategories ?? [];
 }
 
 export async function listXeroTrackingCategories(
-  includeArchived?: boolean
+  includeArchived?: boolean,
+  client?: MCPXeroClient,
 ): Promise<XeroClientResponse<TrackingCategory[]>> {
-  try {
-    const trackingCategories = await getTrackingCategories(includeArchived);
+  return clientContext.run(resolveXeroClient(client), async () => {
+    try {
+      const trackingCategories = await getTrackingCategories(includeArchived);
 
-    return {
-      result: trackingCategories,
-      isError: false,
-      error: null
-    };
-  } catch (error) {
-    return {
-      result: null,
-      isError: true,
-      error: formatError(error)
-    };
-  }
+      return {
+        result: trackingCategories,
+        isError: false,
+        error: null,
+      };
+    } catch (error) {
+      return {
+        result: null,
+        isError: true,
+        error: formatError(error),
+      };
+    }
+  });
 }

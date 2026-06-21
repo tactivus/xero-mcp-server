@@ -1,4 +1,9 @@
-import { xeroClient } from "../clients/xero-client.js";
+import {
+  MCPXeroClient,
+  getActiveXeroClient,
+  clientContext,
+  resolveXeroClient,
+} from "../clients/xero-client.js";
 import { XeroClientResponse } from "../types/tool-response.js";
 import { formatError } from "../helpers/format-error.js";
 import { CreditNote } from "xero-node";
@@ -17,7 +22,8 @@ async function createCreditNote(
   lineItems: CreditNoteLineItem[],
   reference: string | undefined,
 ): Promise<CreditNote | undefined> {
-  await xeroClient.authenticate();
+  const activeClient = getActiveXeroClient();
+  await activeClient.authenticate();
 
   const creditNote: CreditNote = {
     type: CreditNote.TypeEnum.ACCRECCREDIT,
@@ -30,8 +36,8 @@ async function createCreditNote(
     status: CreditNote.StatusEnum.DRAFT,
   };
 
-  const response = await xeroClient.accountingApi.createCreditNotes(
-    xeroClient.tenantId,
+  const response = await activeClient.accountingApi.createCreditNotes(
+    activeClient.tenantId,
     {
       creditNotes: [creditNote],
     }, // creditNotes
@@ -51,28 +57,31 @@ export async function createXeroCreditNote(
   contactId: string,
   lineItems: CreditNoteLineItem[],
   reference?: string,
+  client?: MCPXeroClient,
 ): Promise<XeroClientResponse<CreditNote>> {
-  try {
-    const createdCreditNote = await createCreditNote(
-      contactId,
-      lineItems,
-      reference,
-    );
+  return clientContext.run(resolveXeroClient(client), async () => {
+    try {
+      const createdCreditNote = await createCreditNote(
+        contactId,
+        lineItems,
+        reference,
+      );
 
-    if (!createdCreditNote) {
-      throw new Error("Credit note creation failed.");
+      if (!createdCreditNote) {
+        throw new Error("Credit note creation failed.");
+      }
+
+      return {
+        result: createdCreditNote,
+        isError: false,
+        error: null,
+      };
+    } catch (error) {
+      return {
+        result: null,
+        isError: true,
+        error: formatError(error),
+      };
     }
-
-    return {
-      result: createdCreditNote,
-      isError: false,
-      error: null,
-    };
-  } catch (error) {
-    return {
-      result: null,
-      isError: true,
-      error: formatError(error),
-    };
-  }
+  });
 }

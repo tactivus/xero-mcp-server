@@ -1,4 +1,9 @@
-import { xeroClient } from "../clients/xero-client.js";
+import {
+  MCPXeroClient,
+  getActiveXeroClient,
+  clientContext,
+  resolveXeroClient,
+} from "../clients/xero-client.js";
 import { XeroClientResponse } from "../types/tool-response.js";
 import { formatError } from "../helpers/format-error.js";
 import { getClientHeaders } from "../helpers/get-client-headers.js";
@@ -8,10 +13,11 @@ import { LeaveType } from "../types/payroll-nz-types.js";
  * Internal function to fetch leave types from Xero
  */
 async function fetchLeaveTypes(): Promise<LeaveType[] | null> {
-  await xeroClient.authenticate();
+  const activeClient = getActiveXeroClient();
+  await activeClient.authenticate();
 
-  const response = await xeroClient.payrollNZApi.getLeaveTypes(
-    xeroClient.tenantId,
+  const response = await activeClient.payrollNZApi.getLeaveTypes(
+    activeClient.tenantId,
     undefined, // page
     undefined, // pageSize
     getClientHeaders(),
@@ -23,30 +29,32 @@ async function fetchLeaveTypes(): Promise<LeaveType[] | null> {
 /**
  * List all leave types from Xero Payroll
  */
-export async function listXeroPayrollLeaveTypes(): Promise<
-  XeroClientResponse<LeaveType[]>
-> {
-  try {
-    const leaveTypes = await fetchLeaveTypes();
+export async function listXeroPayrollLeaveTypes(
+  client?: MCPXeroClient,
+): Promise<XeroClientResponse<LeaveType[]>> {
+  return clientContext.run(resolveXeroClient(client), async () => {
+    try {
+      const leaveTypes = await fetchLeaveTypes();
 
-    if (!leaveTypes) {
+      if (!leaveTypes) {
+        return {
+          result: [],
+          isError: false,
+          error: null,
+        };
+      }
+
       return {
-        result: [],
+        result: leaveTypes,
         isError: false,
         error: null,
       };
+    } catch (error) {
+      return {
+        result: null,
+        isError: true,
+        error: formatError(error),
+      };
     }
-
-    return {
-      result: leaveTypes,
-      isError: false,
-      error: null,
-    };
-  } catch (error) {
-    return {
-      result: null,
-      isError: true,
-      error: formatError(error),
-    };
-  }
+  });
 }

@@ -1,15 +1,21 @@
 import { Timesheet } from "xero-node/dist/gen/model/payroll-nz/timesheet.js";
 
-import { xeroClient } from "../clients/xero-client.js";
+import {
+  MCPXeroClient,
+  getActiveXeroClient,
+  clientContext,
+  resolveXeroClient,
+} from "../clients/xero-client.js";
 import { formatError } from "../helpers/format-error.js";
 import { XeroClientResponse } from "../types/tool-response.js";
 
 async function getTimesheets(): Promise<Timesheet[]> {
-  await xeroClient.authenticate();
+  const activeClient = getActiveXeroClient();
+  await activeClient.authenticate();
 
   // Call the Timesheets endpoint from the PayrollNZApi
-  const timesheets = await xeroClient.payrollNZApi.getTimesheets(
-    xeroClient.tenantId,
+  const timesheets = await activeClient.payrollNZApi.getTimesheets(
+    activeClient.tenantId,
     undefined, // page
     undefined, // filter
   );
@@ -20,22 +26,24 @@ async function getTimesheets(): Promise<Timesheet[]> {
 /**
  * List all payroll timesheets from Xero
  */
-export async function listXeroPayrollTimesheets(): Promise<
-  XeroClientResponse<Timesheet[]>
-> {
-  try {
-    const timesheets = await getTimesheets();
+export async function listXeroPayrollTimesheets(
+  client?: MCPXeroClient,
+): Promise<XeroClientResponse<Timesheet[]>> {
+  return clientContext.run(resolveXeroClient(client), async () => {
+    try {
+      const timesheets = await getTimesheets();
 
-    return {
-      result: timesheets,
-      isError: false,
-      error: null,
-    };
-  } catch (error) {
-    return {
-      result: null,
-      isError: true,
-      error: formatError(error),
-    };
-  }
+      return {
+        result: timesheets,
+        isError: false,
+        error: null,
+      };
+    } catch (error) {
+      return {
+        result: null,
+        isError: true,
+        error: formatError(error),
+      };
+    }
+  });
 }

@@ -1,4 +1,9 @@
-import { xeroClient } from "../clients/xero-client.js";
+import {
+  MCPXeroClient,
+  getActiveXeroClient,
+  clientContext,
+  resolveXeroClient,
+} from "../clients/xero-client.js";
 import { XeroClientResponse } from "../types/tool-response.js";
 import { formatError } from "../helpers/format-error.js";
 import { Contact, Phone, Address, Contacts } from "xero-node";
@@ -13,7 +18,8 @@ async function updateContact(
   address: Address | undefined,
   contactId: string,
 ): Promise<Contact | undefined> {
-  await xeroClient.authenticate();
+  const activeClient = getActiveXeroClient();
+  await activeClient.authenticate();
 
   const contact: Contact = {
     name,
@@ -47,8 +53,8 @@ async function updateContact(
     contacts: [contact],
   };
 
-  const response = await xeroClient.accountingApi.updateContact(
-    xeroClient.tenantId,
+  const response = await activeClient.accountingApi.updateContact(
+    activeClient.tenantId,
     contactId, // contactId
     contacts, // contacts
     undefined, // idempotencyKey
@@ -70,32 +76,35 @@ export async function updateXeroContact(
   email?: string,
   phone?: string,
   address?: Address,
+  client?: MCPXeroClient,
 ): Promise<XeroClientResponse<Contact>> {
-  try {
-    const updatedContact = await updateContact(
-      name,
-      firstName,
-      lastName,
-      email,
-      phone,
-      address,
-      contactId,
-    );
+  return clientContext.run(resolveXeroClient(client), async () => {
+    try {
+      const updatedContact = await updateContact(
+        name,
+        firstName,
+        lastName,
+        email,
+        phone,
+        address,
+        contactId,
+      );
 
-    if (!updatedContact) {
-      throw new Error("Contact update failed.");
+      if (!updatedContact) {
+        throw new Error("Contact update failed.");
+      }
+
+      return {
+        result: updatedContact,
+        isError: false,
+        error: null,
+      };
+    } catch (error) {
+      return {
+        result: null,
+        isError: true,
+        error: formatError(error),
+      };
     }
-
-    return {
-      result: updatedContact,
-      isError: false,
-      error: null,
-    };
-  } catch (error) {
-    return {
-      result: null,
-      isError: true,
-      error: formatError(error),
-    };
-  }
+  });
 }

@@ -1,4 +1,9 @@
-import { xeroClient } from "../clients/xero-client.js";
+import {
+  MCPXeroClient,
+  getActiveXeroClient,
+  clientContext,
+  resolveXeroClient,
+} from "../clients/xero-client.js";
 import { XeroClientResponse } from "../types/tool-response.js";
 import { formatError } from "../helpers/format-error.js";
 import { getClientHeaders } from "../helpers/get-client-headers.js";
@@ -11,10 +16,11 @@ async function fetchTrialBalance(
   date?: string,
   paymentsOnly?: boolean,
 ): Promise<ReportWithRow | null> {
-  await xeroClient.authenticate();
+  const activeClient = getActiveXeroClient();
+  await activeClient.authenticate();
 
-  const response = await xeroClient.accountingApi.getReportTrialBalance(
-    xeroClient.tenantId,
+  const response = await activeClient.accountingApi.getReportTrialBalance(
+    activeClient.tenantId,
     date, // Optional date parameter in YYYY-MM-DD format
     paymentsOnly, // Optional boolean to include only accounts with payments
     getClientHeaders(),
@@ -31,28 +37,31 @@ async function fetchTrialBalance(
 export async function listXeroTrialBalance(
   date?: string,
   paymentsOnly?: boolean,
+  client?: MCPXeroClient,
 ): Promise<XeroClientResponse<ReportWithRow>> {
-  try {
-    const trialBalance = await fetchTrialBalance(date, paymentsOnly);
+  return clientContext.run(resolveXeroClient(client), async () => {
+    try {
+      const trialBalance = await fetchTrialBalance(date, paymentsOnly);
 
-    if (!trialBalance) {
+      if (!trialBalance) {
+        return {
+          result: null,
+          isError: true,
+          error: "Failed to fetch trial balance data from Xero.",
+        };
+      }
+
+      return {
+        result: trialBalance,
+        isError: false,
+        error: null,
+      };
+    } catch (error) {
       return {
         result: null,
         isError: true,
-        error: "Failed to fetch trial balance data from Xero.",
+        error: formatError(error),
       };
     }
-
-    return {
-      result: trialBalance,
-      isError: false,
-      error: null,
-    };
-  } catch (error) {
-    return {
-      result: null,
-      isError: true,
-      error: formatError(error),
-    };
-  }
-} 
+  });
+}

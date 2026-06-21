@@ -1,4 +1,9 @@
-import { xeroClient } from "../clients/xero-client.js";
+import {
+  MCPXeroClient,
+  getActiveXeroClient,
+  clientContext,
+  resolveXeroClient,
+} from "../clients/xero-client.js";
 import { XeroClientResponse } from "../types/tool-response.js";
 import { formatError } from "../helpers/format-error.js";
 import { Invoice, LineItemTracking } from "xero-node";
@@ -15,11 +20,12 @@ interface InvoiceLineItem {
 }
 
 async function getInvoice(invoiceId: string): Promise<Invoice | undefined> {
-  await xeroClient.authenticate();
+  const activeClient = getActiveXeroClient();
+  await activeClient.authenticate();
 
   // First, get the current invoice to check its status
-  const response = await xeroClient.accountingApi.getInvoice(
-    xeroClient.tenantId,
+  const response = await activeClient.accountingApi.getInvoice(
+    activeClient.tenantId,
     invoiceId, // invoiceId
     undefined, // unitdp
     getClientHeaders(), // options
@@ -36,6 +42,7 @@ async function updateInvoice(
   date?: string,
   contactId?: string,
 ): Promise<Invoice | undefined> {
+  const activeClient = getActiveXeroClient();
   const invoice: Invoice = {
     lineItems: lineItems,
     reference: reference,
@@ -44,8 +51,8 @@ async function updateInvoice(
     contact: contactId ? { contactID: contactId } : undefined,
   };
 
-  const response = await xeroClient.accountingApi.updateInvoice(
-    xeroClient.tenantId,
+  const response = await activeClient.accountingApi.updateInvoice(
+    activeClient.tenantId,
     invoiceId, // invoiceId
     {
       invoices: [invoice],
@@ -68,44 +75,47 @@ export async function updateXeroInvoice(
   dueDate?: string,
   date?: string,
   contactId?: string,
+  client?: MCPXeroClient,
 ): Promise<XeroClientResponse<Invoice>> {
-  try {
-    const existingInvoice = await getInvoice(invoiceId);
+  return clientContext.run(resolveXeroClient(client), async () => {
+    try {
+      const existingInvoice = await getInvoice(invoiceId);
 
-    const invoiceStatus = existingInvoice?.status;
+      const invoiceStatus = existingInvoice?.status;
 
-    // Only allow updates to DRAFT invoices
-    if (invoiceStatus !== Invoice.StatusEnum.DRAFT) {
+      // Only allow updates to DRAFT invoices
+      if (invoiceStatus !== Invoice.StatusEnum.DRAFT) {
+        return {
+          result: null,
+          isError: true,
+          error: `Cannot update invoice because it is not a draft. Current status: ${invoiceStatus}`,
+        };
+      }
+
+      const updatedInvoice = await updateInvoice(
+        invoiceId,
+        lineItems,
+        reference,
+        dueDate,
+        date,
+        contactId,
+      );
+
+      if (!updatedInvoice) {
+        throw new Error("Invoice update failed.");
+      }
+
+      return {
+        result: updatedInvoice,
+        isError: false,
+        error: null,
+      };
+    } catch (error) {
       return {
         result: null,
         isError: true,
-        error: `Cannot update invoice because it is not a draft. Current status: ${invoiceStatus}`,
+        error: formatError(error),
       };
     }
-
-    const updatedInvoice = await updateInvoice(
-      invoiceId,
-      lineItems,
-      reference,
-      dueDate,
-      date,
-      contactId,
-    );
-
-    if (!updatedInvoice) {
-      throw new Error("Invoice update failed.");
-    }
-
-    return {
-      result: updatedInvoice,
-      isError: false,
-      error: null,
-    };
-  } catch (error) {
-    return {
-      result: null,
-      isError: true,
-      error: formatError(error),
-    };
-  }
+  });
 }

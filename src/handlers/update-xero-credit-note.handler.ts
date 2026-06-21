@@ -1,4 +1,9 @@
-import { xeroClient } from "../clients/xero-client.js";
+import {
+  MCPXeroClient,
+  getActiveXeroClient,
+  clientContext,
+  resolveXeroClient,
+} from "../clients/xero-client.js";
 import { XeroClientResponse } from "../types/tool-response.js";
 import { formatError } from "../helpers/format-error.js";
 import { CreditNote } from "xero-node";
@@ -13,11 +18,12 @@ interface CreditNoteLineItem {
 }
 
 async function getCreditNote(creditNoteId: string): Promise<CreditNote | null> {
-  await xeroClient.authenticate();
+  const activeClient = getActiveXeroClient();
+  await activeClient.authenticate();
 
   // First, get the current credit note to check its status
-  const response = await xeroClient.accountingApi.getCreditNote(
-    xeroClient.tenantId,
+  const response = await activeClient.accountingApi.getCreditNote(
+    activeClient.tenantId,
     creditNoteId, // creditNoteId
     undefined, // unitdp
     getClientHeaders(), // options
@@ -33,6 +39,7 @@ async function updateCreditNote(
   contactId?: string,
   date?: string,
 ): Promise<CreditNote | null> {
+  const activeClient = getActiveXeroClient();
   const creditNote: CreditNote = {
     lineItems: lineItems,
     reference: reference,
@@ -40,8 +47,8 @@ async function updateCreditNote(
     contact: contactId ? { contactID: contactId } : undefined,
   };
 
-  const response = await xeroClient.accountingApi.updateCreditNote(
-    xeroClient.tenantId,
+  const response = await activeClient.accountingApi.updateCreditNote(
+    activeClient.tenantId,
     creditNoteId, // creditNoteId
     {
       creditNotes: [creditNote],
@@ -63,43 +70,46 @@ export async function updateXeroCreditNote(
   reference?: string,
   contactId?: string,
   date?: string,
+  client?: MCPXeroClient,
 ): Promise<XeroClientResponse<CreditNote>> {
-  try {
-    const existingCreditNote = await getCreditNote(creditNoteId);
+  return clientContext.run(resolveXeroClient(client), async () => {
+    try {
+      const existingCreditNote = await getCreditNote(creditNoteId);
 
-    const creditNoteStatus = existingCreditNote?.status;
+      const creditNoteStatus = existingCreditNote?.status;
 
-    // Only allow updates to DRAFT credit notes
-    if (creditNoteStatus !== CreditNote.StatusEnum.DRAFT) {
+      // Only allow updates to DRAFT credit notes
+      if (creditNoteStatus !== CreditNote.StatusEnum.DRAFT) {
+        return {
+          result: null,
+          isError: true,
+          error: `Cannot update credit note because it is not a draft. Current status: ${creditNoteStatus}`,
+        };
+      }
+
+      const updatedCreditNote = await updateCreditNote(
+        creditNoteId,
+        lineItems,
+        reference,
+        contactId,
+        date,
+      );
+
+      if (!updatedCreditNote) {
+        throw new Error("Credit note update failed.");
+      }
+
+      return {
+        result: updatedCreditNote,
+        isError: false,
+        error: null,
+      };
+    } catch (error) {
       return {
         result: null,
         isError: true,
-        error: `Cannot update credit note because it is not a draft. Current status: ${creditNoteStatus}`,
+        error: formatError(error),
       };
     }
-
-    const updatedCreditNote = await updateCreditNote(
-      creditNoteId,
-      lineItems,
-      reference,
-      contactId,
-      date,
-    );
-
-    if (!updatedCreditNote) {
-      throw new Error("Credit note update failed.");
-    }
-
-    return {
-      result: updatedCreditNote,
-      isError: false,
-      error: null,
-    };
-  } catch (error) {
-    return {
-      result: null,
-      isError: true,
-      error: formatError(error),
-    };
-  }
-} 
+  });
+}

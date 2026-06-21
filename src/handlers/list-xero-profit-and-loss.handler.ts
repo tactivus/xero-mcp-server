@@ -1,4 +1,9 @@
-import { xeroClient } from "../clients/xero-client.js";
+import {
+  MCPXeroClient,
+  getActiveXeroClient,
+  clientContext,
+  resolveXeroClient,
+} from "../clients/xero-client.js";
 import { XeroClientResponse } from "../types/tool-response.js";
 import { formatError } from "../helpers/format-error.js";
 import { getClientHeaders } from "../helpers/get-client-headers.js";
@@ -18,10 +23,11 @@ async function fetchProfitAndLoss(
   standardLayout?: boolean,
   paymentsOnly?: boolean,
 ): Promise<ReportWithRow | null> {
-  await xeroClient.authenticate();
+  const activeClient = getActiveXeroClient();
+  await activeClient.authenticate();
 
-  const response = await xeroClient.accountingApi.getReportProfitAndLoss(
-    xeroClient.tenantId,
+  const response = await activeClient.accountingApi.getReportProfitAndLoss(
+    activeClient.tenantId,
     fromDate,
     toDate,
     periods,
@@ -58,34 +64,38 @@ export async function listXeroProfitAndLoss(
   timeframe?: TimeframeType,
   standardLayout?: boolean,
   paymentsOnly?: boolean,
+  client?: MCPXeroClient,
 ): Promise<XeroClientResponse<ReportWithRow>> {
-  try {
-    const profitAndLoss = await fetchProfitAndLoss(
-      fromDate,
-      toDate,
-      periods,
-      timeframe,
-      paymentsOnly,
-    );
+  return clientContext.run(resolveXeroClient(client), async () => {
+    try {
+      const profitAndLoss = await fetchProfitAndLoss(
+        fromDate,
+        toDate,
+        periods,
+        timeframe,
+        standardLayout,
+        paymentsOnly,
+      );
 
-    if (!profitAndLoss) {
+      if (!profitAndLoss) {
+        return {
+          result: null,
+          isError: true,
+          error: "Failed to fetch profit and loss data from Xero.",
+        };
+      }
+
+      return {
+        result: profitAndLoss,
+        isError: false,
+        error: null,
+      };
+    } catch (error) {
       return {
         result: null,
         isError: true,
-        error: "Failed to fetch profit and loss data from Xero.",
+        error: formatError(error),
       };
     }
-
-    return {
-      result: profitAndLoss,
-      isError: false,
-      error: null,
-    };
-  } catch (error) {
-    return {
-      result: null,
-      isError: true,
-      error: formatError(error),
-    };
-  }
-} 
+  });
+}

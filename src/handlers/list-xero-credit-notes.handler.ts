@@ -1,4 +1,9 @@
-import { xeroClient } from "../clients/xero-client.js";
+import {
+  MCPXeroClient,
+  getActiveXeroClient,
+  clientContext,
+  resolveXeroClient,
+} from "../clients/xero-client.js";
 import { XeroClientResponse } from "../types/tool-response.js";
 import { formatError } from "../helpers/format-error.js";
 import { CreditNote } from "xero-node";
@@ -8,10 +13,11 @@ async function getCreditNotes(
   contactId: string | undefined,
   page: number,
 ): Promise<CreditNote[]> {
-  await xeroClient.authenticate();
+  const activeClient = getActiveXeroClient();
+  await activeClient.authenticate();
 
-  const response = await xeroClient.accountingApi.getCreditNotes(
-    xeroClient.tenantId,
+  const response = await activeClient.accountingApi.getCreditNotes(
+    activeClient.tenantId,
     undefined, // ifModifiedSince
     contactId ? `Contact.ContactID=guid("${contactId}")` : undefined, // where
     "UpdatedDateUTC DESC", // order
@@ -30,20 +36,23 @@ async function getCreditNotes(
 export async function listXeroCreditNotes(
   page: number = 1,
   contactId?: string,
+  client?: MCPXeroClient,
 ): Promise<XeroClientResponse<CreditNote[]>> {
-  try {
-    const creditNotes = await getCreditNotes(contactId, page);
+  return clientContext.run(resolveXeroClient(client), async () => {
+    try {
+      const creditNotes = await getCreditNotes(contactId, page);
 
-    return {
-      result: creditNotes,
-      isError: false,
-      error: null,
-    };
-  } catch (error) {
-    return {
-      result: null,
-      isError: true,
-      error: formatError(error),
-    };
-  }
+      return {
+        result: creditNotes,
+        isError: false,
+        error: null,
+      };
+    } catch (error) {
+      return {
+        result: null,
+        isError: true,
+        error: formatError(error),
+      };
+    }
+  });
 }

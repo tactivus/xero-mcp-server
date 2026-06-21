@@ -1,4 +1,9 @@
-import { xeroClient } from "../clients/xero-client.js";
+import {
+  MCPXeroClient,
+  getActiveXeroClient,
+  clientContext,
+  resolveXeroClient,
+} from "../clients/xero-client.js";
 import { BankTransaction } from "xero-node";
 import { getClientHeaders } from "../helpers/get-client-headers.js";
 import { XeroClientResponse } from "../types/tool-response.js";
@@ -8,16 +13,20 @@ async function getBankTransactions(
   page: number,
   bankAccountId?: string,
 ): Promise<BankTransaction[]> {
-  await xeroClient.authenticate();
+  const activeClient = getActiveXeroClient();
+  await activeClient.authenticate();
 
-  const response = await xeroClient.accountingApi.getBankTransactions(xeroClient.tenantId,
-      undefined, // ifModifiedSince
-      bankAccountId ? `BankAccount.AccountID=guid("${bankAccountId}")` : undefined, // where
-      "Date DESC", // order
-      page, // page
-      undefined, // unitdp
-      10, // pagesize
-      getClientHeaders()
+  const response = await activeClient.accountingApi.getBankTransactions(
+    activeClient.tenantId,
+    undefined, // ifModifiedSince
+    bankAccountId
+      ? `BankAccount.AccountID=guid("${bankAccountId}")`
+      : undefined, // where
+    "Date DESC", // order
+    page, // page
+    undefined, // unitdp
+    10, // pagesize
+    getClientHeaders(),
   );
 
   return response.body.bankTransactions ?? [];
@@ -25,21 +34,24 @@ async function getBankTransactions(
 
 export async function listXeroBankTransactions(
   page: number = 1,
-  bankAccountId?: string
+  bankAccountId?: string,
+  client?: MCPXeroClient,
 ): Promise<XeroClientResponse<BankTransaction[]>> {
-  try {
-    const bankTransactions = await getBankTransactions(page, bankAccountId);
+  return clientContext.run(resolveXeroClient(client), async () => {
+    try {
+      const bankTransactions = await getBankTransactions(page, bankAccountId);
 
-    return {
-      result: bankTransactions,
-      isError: false,
-      error: null
+      return {
+        result: bankTransactions,
+        isError: false,
+        error: null,
+      };
+    } catch (error) {
+      return {
+        result: null,
+        isError: true,
+        error: formatError(error),
+      };
     }
-  } catch (error) {
-    return {
-      result: null,
-      isError: true,
-      error: formatError(error)
-    }
-  }
+  });
 }

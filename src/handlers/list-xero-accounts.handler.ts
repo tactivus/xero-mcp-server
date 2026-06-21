@@ -1,14 +1,20 @@
-import { xeroClient } from "../clients/xero-client.js";
+import {
+  MCPXeroClient,
+  getActiveXeroClient,
+  clientContext,
+  resolveXeroClient,
+} from "../clients/xero-client.js";
 import { XeroClientResponse } from "../types/tool-response.js";
 import { formatError } from "../helpers/format-error.js";
 import { Account } from "xero-node";
 import { getClientHeaders } from "../helpers/get-client-headers.js";
 
 async function listAccounts(): Promise<Account[]> {
-  await xeroClient.authenticate();
+  const activeClient = getActiveXeroClient();
+  await activeClient.authenticate();
 
-  const response = await xeroClient.accountingApi.getAccounts(
-    xeroClient.tenantId,
+  const response = await activeClient.accountingApi.getAccounts(
+    activeClient.tenantId,
     undefined, // ifModifiedSince
     undefined, // where
     undefined, // order
@@ -22,22 +28,24 @@ async function listAccounts(): Promise<Account[]> {
 /**
  * List all accounts from Xero
  */
-export async function listXeroAccounts(): Promise<
-  XeroClientResponse<Account[]>
-> {
-  try {
-    const accounts = await listAccounts();
+export async function listXeroAccounts(
+  client?: MCPXeroClient,
+): Promise<XeroClientResponse<Account[]>> {
+  return clientContext.run(resolveXeroClient(client), async () => {
+    try {
+      const accounts = await listAccounts();
 
-    return {
-      result: accounts,
-      isError: false,
-      error: null,
-    };
-  } catch (error) {
-    return {
-      result: null,
-      isError: true,
-      error: formatError(error),
-    };
-  }
+      return {
+        result: accounts,
+        isError: false,
+        error: null,
+      };
+    } catch (error) {
+      return {
+        result: null,
+        isError: true,
+        error: formatError(error),
+      };
+    }
+  });
 }

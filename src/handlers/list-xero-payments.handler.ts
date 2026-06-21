@@ -1,4 +1,9 @@
-import { xeroClient } from "../clients/xero-client.js";
+import {
+  MCPXeroClient,
+  getActiveXeroClient,
+  clientContext,
+  resolveXeroClient,
+} from "../clients/xero-client.js";
 import { XeroClientResponse } from "../types/tool-response.js";
 import { formatError } from "../helpers/format-error.js";
 import { Payment } from "xero-node";
@@ -18,7 +23,8 @@ async function getPayments(
     reference?: string;
   },
 ): Promise<Payment[]> {
-  await xeroClient.authenticate();
+  const activeClient = getActiveXeroClient();
+  await activeClient.authenticate();
 
   // Build where clause for filtering
   const whereConditions: string[] = [];
@@ -40,8 +46,8 @@ async function getPayments(
   const where =
     whereConditions.length > 0 ? whereConditions.join(" AND ") : undefined;
 
-  const response = await xeroClient.accountingApi.getPayments(
-    xeroClient.tenantId,
+  const response = await activeClient.accountingApi.getPayments(
+    activeClient.tenantId,
     undefined, // ifModifiedSince
     where,
     "UpdatedDateUTC DESC", // order
@@ -69,25 +75,28 @@ export async function listXeroPayments(
     paymentId?: string;
     reference?: string;
   },
+  client?: MCPXeroClient,
 ): Promise<XeroClientResponse<Payment[]>> {
-  try {
-    const payments = await getPayments(page, {
-      invoiceNumber,
-      invoiceId,
-      paymentId,
-      reference,
-    });
+  return clientContext.run(resolveXeroClient(client), async () => {
+    try {
+      const payments = await getPayments(page, {
+        invoiceNumber,
+        invoiceId,
+        paymentId,
+        reference,
+      });
 
-    return {
-      result: payments,
-      isError: false,
-      error: null,
-    };
-  } catch (error) {
-    return {
-      result: null,
-      isError: true,
-      error: formatError(error),
-    };
-  }
+      return {
+        result: payments,
+        isError: false,
+        error: null,
+      };
+    } catch (error) {
+      return {
+        result: null,
+        isError: true,
+        error: formatError(error),
+      };
+    }
+  });
 }

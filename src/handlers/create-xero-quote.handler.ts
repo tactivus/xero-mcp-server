@@ -1,4 +1,9 @@
-import { xeroClient } from "../clients/xero-client.js";
+import {
+  MCPXeroClient,
+  getActiveXeroClient,
+  clientContext,
+  resolveXeroClient,
+} from "../clients/xero-client.js";
 import { XeroClientResponse } from "../types/tool-response.js";
 import { formatError } from "../helpers/format-error.js";
 import { Quote, QuoteStatusCodes } from "xero-node";
@@ -21,7 +26,8 @@ async function createQuote(
   title: string | undefined,
   summary: string | undefined,
 ): Promise<Quote | undefined> {
-  await xeroClient.authenticate();
+  const activeClient = getActiveXeroClient();
+  await activeClient.authenticate();
 
   const quote: Quote = {
     quoteNumber: quoteNumber,
@@ -40,8 +46,8 @@ async function createQuote(
     summary: summary,
   };
 
-  const response = await xeroClient.accountingApi.createQuotes(
-    xeroClient.tenantId,
+  const response = await activeClient.accountingApi.createQuotes(
+    activeClient.tenantId,
     {
       quotes: [quote],
     }, // quotes
@@ -64,32 +70,35 @@ export async function createXeroQuote(
   terms?: string,
   title?: string,
   summary?: string,
+  client?: MCPXeroClient,
 ): Promise<XeroClientResponse<Quote>> {
-  try {
-    const createdQuote = await createQuote(
-      quoteNumber,
-      reference,
-      terms,
-      contactId,
-      lineItems,
-      title,
-      summary,
-    );
+  return clientContext.run(resolveXeroClient(client), async () => {
+    try {
+      const createdQuote = await createQuote(
+        quoteNumber,
+        reference,
+        terms,
+        contactId,
+        lineItems,
+        title,
+        summary,
+      );
 
-    if (!createdQuote) {
-      throw new Error("Quote creation failed.");
+      if (!createdQuote) {
+        throw new Error("Quote creation failed.");
+      }
+
+      return {
+        result: createdQuote,
+        isError: false,
+        error: null,
+      };
+    } catch (error) {
+      return {
+        result: null,
+        isError: true,
+        error: formatError(error),
+      };
     }
-
-    return {
-      result: createdQuote,
-      isError: false,
-      error: null,
-    };
-  } catch (error) {
-    return {
-      result: null,
-      isError: true,
-      error: formatError(error),
-    };
-  }
+  });
 }

@@ -1,4 +1,4 @@
-import { xeroClient } from "../clients/xero-client.js";
+import { MCPXeroClient, getActiveXeroClient } from "../clients/xero-client.js";
 import {
   contactDeepLink,
   creditNoteDeepLink,
@@ -24,10 +24,16 @@ export enum DeepLinkType {
  * This will also fetch the org short code from the Xero client.
  * @param type
  * @param itemId
+ * @param client
  * @returns
  */
-export const getDeepLink = async (type: DeepLinkType, itemId: string) => {
-  const orgShortCode = await xeroClient.getShortCode();
+export const getDeepLink = async (
+  type: DeepLinkType,
+  itemId: string,
+  client?: MCPXeroClient,
+) => {
+  const activeClient = client ?? getActiveXeroClient();
+  const orgShortCode = await activeClient.getShortCode();
 
   if (!orgShortCode) {
     throw new Error("Failed to retrieve organisation short code");
