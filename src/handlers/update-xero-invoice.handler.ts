@@ -1,6 +1,7 @@
 import {
   MCPXeroClient,
   getActiveXeroClient,
+  getActiveXeroTenantId,
   clientContext,
   resolveXeroClient,
 } from "../clients/xero-client.js";
@@ -25,7 +26,7 @@ async function getInvoice(invoiceId: string): Promise<Invoice | undefined> {
 
   // First, get the current invoice to check its status
   const response = await activeClient.accountingApi.getInvoice(
-    activeClient.tenantId,
+    getActiveXeroTenantId(),
     invoiceId, // invoiceId
     undefined, // unitdp
     getClientHeaders(), // options
@@ -52,7 +53,7 @@ async function updateInvoice(
   };
 
   const response = await activeClient.accountingApi.updateInvoice(
-    activeClient.tenantId,
+    getActiveXeroTenantId(),
     invoiceId, // invoiceId
     {
       invoices: [invoice],

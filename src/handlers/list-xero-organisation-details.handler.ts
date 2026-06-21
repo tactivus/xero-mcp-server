@@ -1,6 +1,7 @@
 import {
   MCPXeroClient,
   getActiveXeroClient,
+  getActiveXeroTenantId,
   clientContext,
   resolveXeroClient,
 } from "../clients/xero-client.js";
@@ -14,7 +15,7 @@ async function getOrganisationDetails(): Promise<Organisation> {
   await activeClient.authenticate();
 
   const response = await activeClient.accountingApi.getOrganisations(
-    activeClient.tenantId,
+    getActiveXeroTenantId(),
     getClientHeaders(),
   );
 

@@ -1,6 +1,7 @@
 import {
   MCPXeroClient,
   getActiveXeroClient,
+  getActiveXeroTenantId,
   clientContext,
   resolveXeroClient,
 } from "../clients/xero-client.js";
@@ -17,7 +18,7 @@ async function getBankTransactions(
   await activeClient.authenticate();
 
   const response = await activeClient.accountingApi.getBankTransactions(
-    activeClient.tenantId,
+    getActiveXeroTenantId(),
     undefined, // ifModifiedSince
     bankAccountId
       ? `BankAccount.AccountID=guid("${bankAccountId}")`

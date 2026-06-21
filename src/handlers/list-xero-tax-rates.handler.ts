@@ -1,6 +1,7 @@
 import {
   MCPXeroClient,
   getActiveXeroClient,
+  getActiveXeroTenantId,
   clientContext,
   resolveXeroClient,
 } from "../clients/xero-client.js";
@@ -14,7 +15,7 @@ async function getTaxRates(): Promise<TaxRate[]> {
   await activeClient.authenticate();
 
   const taxRates = await activeClient.accountingApi.getTaxRates(
-    activeClient.tenantId,
+    getActiveXeroTenantId(),
     undefined, // where
     undefined, // order
     getClientHeaders(),

@@ -7,6 +7,7 @@ import {
 import {
   MCPXeroClient,
   getActiveXeroClient,
+  getActiveXeroTenantId,
   clientContext,
   resolveXeroClient,
 } from "../clients/xero-client.js";
@@ -48,7 +49,7 @@ async function updateManualJournal(
   };
 
   const response = await activeClient.accountingApi.updateManualJournal(
-    activeClient.tenantId,
+    getActiveXeroTenantId(),
     manualJournalID,
     manualJournals,
     undefined,

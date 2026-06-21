@@ -1,6 +1,7 @@
 import {
   MCPXeroClient,
   getActiveXeroClient,
+  getActiveXeroTenantId,
   clientContext,
   resolveXeroClient,
 } from "../clients/xero-client.js";
@@ -51,7 +52,7 @@ async function updateItem(
   };
 
   const response = await activeClient.accountingApi.updateItem(
-    activeClient.tenantId,
+    getActiveXeroTenantId(),
     itemId,
     items,
     undefined, // unitdp

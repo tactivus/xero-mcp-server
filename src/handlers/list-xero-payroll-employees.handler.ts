@@ -1,6 +1,7 @@
 import {
   MCPXeroClient,
   getActiveXeroClient,
+  getActiveXeroTenantId,
   clientContext,
   resolveXeroClient,
 } from "../clients/xero-client.js";
@@ -15,7 +16,7 @@ async function getPayrollEmployees(): Promise<Employee[]> {
 
   // Call the Employees endpoint from the PayrollNZApi
   const employees = await activeClient.payrollNZApi.getEmployees(
-    activeClient.tenantId,
+    getActiveXeroTenantId(),
     undefined, // page
     undefined, // pageSize
     getClientHeaders(),

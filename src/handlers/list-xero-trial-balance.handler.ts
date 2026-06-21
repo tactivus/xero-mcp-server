@@ -1,6 +1,7 @@
 import {
   MCPXeroClient,
   getActiveXeroClient,
+  getActiveXeroTenantId,
   clientContext,
   resolveXeroClient,
 } from "../clients/xero-client.js";
@@ -20,7 +21,7 @@ async function fetchTrialBalance(
   await activeClient.authenticate();
 
   const response = await activeClient.accountingApi.getReportTrialBalance(
-    activeClient.tenantId,
+    getActiveXeroTenantId(),
     date, // Optional date parameter in YYYY-MM-DD format
     paymentsOnly, // Optional boolean to include only accounts with payments
     getClientHeaders(),

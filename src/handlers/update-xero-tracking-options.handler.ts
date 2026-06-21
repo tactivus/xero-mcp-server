@@ -2,6 +2,7 @@ import { TrackingOption } from "xero-node";
 import {
   MCPXeroClient,
   getActiveXeroClient,
+  getActiveXeroTenantId,
   clientContext,
   resolveXeroClient,
 } from "../clients/xero-client.js";
@@ -24,7 +25,7 @@ async function getTrackingOptions(
   await activeClient.authenticate();
 
   const response = await activeClient.accountingApi.getTrackingCategory(
-    activeClient.tenantId,
+    getActiveXeroTenantId(),
     trackingCategoryId,
     getClientHeaders(),
   );
@@ -49,7 +50,7 @@ async function updateTrackingOption(
   };
 
   await activeClient.accountingApi.updateTrackingOptions(
-    activeClient.tenantId,
+    getActiveXeroTenantId(),
     trackingCategoryId,
     trackingOptionId,
     trackingOption,

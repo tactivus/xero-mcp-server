@@ -1,6 +1,7 @@
 import {
   MCPXeroClient,
   getActiveXeroClient,
+  getActiveXeroTenantId,
   clientContext,
   resolveXeroClient,
 } from "../clients/xero-client.js";
@@ -13,7 +14,7 @@ async function deleteTimesheet(timesheetID: string): Promise<boolean> {
 
   // Call the deleteTimesheet endpoint from the PayrollNZApi
   await activeClient.payrollNZApi.deleteTimesheet(
-    activeClient.tenantId,
+    getActiveXeroTenantId(),
     timesheetID,
   );
 

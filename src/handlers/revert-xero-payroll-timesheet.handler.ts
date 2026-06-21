@@ -3,6 +3,7 @@ import { Timesheet } from "xero-node/dist/gen/model/payroll-nz/timesheet.js";
 import {
   MCPXeroClient,
   getActiveXeroClient,
+  getActiveXeroTenantId,
   clientContext,
   resolveXeroClient,
 } from "../clients/xero-client.js";
@@ -15,7 +16,7 @@ async function revertTimesheet(timesheetID: string): Promise<Timesheet | null> {
 
   // Call the revertTimesheet endpoint from the PayrollNZApi
   const revertedTimesheet = await activeClient.payrollNZApi.revertTimesheet(
-    activeClient.tenantId,
+    getActiveXeroTenantId(),
     timesheetID,
   );
 

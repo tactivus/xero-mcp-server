@@ -1,6 +1,7 @@
 import {
   MCPXeroClient,
   getActiveXeroClient,
+  getActiveXeroTenantId,
   clientContext,
   resolveXeroClient,
 } from "../clients/xero-client.js";
@@ -18,7 +19,7 @@ async function getQuotes(
   await activeClient.authenticate();
 
   const quotes = await activeClient.accountingApi.getQuotes(
-    activeClient.tenantId,
+    getActiveXeroTenantId(),
     undefined, // ifModifiedSince
     undefined, // dateFrom
     undefined, // dateTo

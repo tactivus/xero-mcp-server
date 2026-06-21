@@ -2,6 +2,7 @@ import { ManualJournal } from "xero-node";
 import {
   MCPXeroClient,
   getActiveXeroClient,
+  getActiveXeroTenantId,
   clientContext,
   resolveXeroClient,
 } from "../clients/xero-client.js";
@@ -19,7 +20,7 @@ async function getManualJournals(
 
   if (manualJournalId) {
     const response = await activeClient.accountingApi.getManualJournal(
-      activeClient.tenantId,
+      getActiveXeroTenantId(),
       manualJournalId,
       getClientHeaders(),
     );
@@ -28,7 +29,7 @@ async function getManualJournals(
   }
 
   const response = await activeClient.accountingApi.getManualJournals(
-    activeClient.tenantId,
+    getActiveXeroTenantId(),
     modifiedAfter ? new Date(modifiedAfter) : undefined,
     undefined,
     "UpdatedDateUTC DESC",

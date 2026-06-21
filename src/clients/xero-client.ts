@@ -11,6 +11,7 @@ import {
 import { ensureError } from "../helpers/ensure-error.js";
 
 export const clientContext = new AsyncLocalStorage<MCPXeroClient>();
+export const tenantContext = new AsyncLocalStorage<string>();
 
 export function getActiveXeroClient(): MCPXeroClient {
   const client = clientContext.getStore();
@@ -26,14 +27,18 @@ export function resolveXeroClient(client?: MCPXeroClient): MCPXeroClient {
   return client ?? getActiveXeroClient();
 }
 
+export function getActiveXeroTenantId(): string {
+  return tenantContext.getStore() ?? getActiveXeroClient().tenantId;
+}
+
 export abstract class MCPXeroClient extends XeroClient {
   public tenantId: string;
-  private shortCode: string;
+  private shortCodesByTenantId: Map<string, string>;
 
   protected constructor(config?: IXeroClientConfig) {
     super(config);
     this.tenantId = "";
-    this.shortCode = "";
+    this.shortCodesByTenantId = new Map();
   }
 
   public abstract authenticate(): Promise<void>;
@@ -50,8 +55,9 @@ export abstract class MCPXeroClient extends XeroClient {
   private async getOrganisation(): Promise<Organisation> {
     await this.authenticate();
 
+    const tenantId = tenantContext.getStore() ?? this.tenantId;
     const organisationResponse = await this.accountingApi.getOrganisations(
-      this.tenantId || "",
+      tenantId || "",
     );
 
     const organisation = organisationResponse.body.organisations?.[0];
@@ -64,10 +70,13 @@ export abstract class MCPXeroClient extends XeroClient {
   }
 
   public async getShortCode(): Promise<string | undefined> {
-    if (!this.shortCode) {
+    const tenantId = tenantContext.getStore() ?? this.tenantId;
+    const cachedShortCode = this.shortCodesByTenantId.get(tenantId);
+
+    if (cachedShortCode === undefined) {
       try {
         const organisation = await this.getOrganisation();
-        this.shortCode = organisation.shortCode ?? "";
+        this.shortCodesByTenantId.set(tenantId, organisation.shortCode ?? "");
       } catch (error: unknown) {
         const err = ensureError(error);
 
@@ -76,7 +85,7 @@ export abstract class MCPXeroClient extends XeroClient {
         );
       }
     }
-    return this.shortCode;
+    return this.shortCodesByTenantId.get(tenantId);
   }
 }
 
@@ -131,12 +140,13 @@ export class CustomConnectionsXeroClient extends MCPXeroClient {
 
   private formatTokenError(error: unknown, context: string): Error {
     const axiosError = error as AxiosError;
-    const data = axiosError.response?.data;
-    const message =
-      typeof data === "object"
-        ? JSON.stringify(data)
-        : data || axiosError.message;
-    return new Error(`Failed to get Xero token${context}: ${message}`);
+    const status = axiosError.response?.status;
+    const statusText = axiosError.response?.statusText;
+    const suffix = status
+      ? `: identity service returned ${status}${statusText ? ` ${statusText}` : ""}`
+      : `: network error${axiosError.code ? ` (${axiosError.code})` : ""}`;
+
+    return new Error(`Failed to get Xero token${context}${suffix}`);
   }
 
   public async getClientCredentialsToken(): Promise<TokenSet> {

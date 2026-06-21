@@ -1,6 +1,7 @@
 import {
   MCPXeroClient,
   getActiveXeroClient,
+  getActiveXeroTenantId,
   clientContext,
   resolveXeroClient,
 } from "../clients/xero-client.js";
@@ -30,7 +31,7 @@ async function fetchLeavePeriods({
   } // After reviewing the SDK documentation, it appears this API call requires different parameters
   // Use parameters that match the SDK's expectations
   const response = await activeClient.payrollNZApi.getEmployeeLeavePeriods(
-    activeClient.tenantId,
+    getActiveXeroTenantId(),
     employeeId,
     startDate,
     endDate,

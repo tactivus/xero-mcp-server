@@ -1,6 +1,7 @@
 import {
   MCPXeroClient,
   getActiveXeroClient,
+  getActiveXeroTenantId,
   clientContext,
   resolveXeroClient,
 } from "../clients/xero-client.js";
@@ -28,7 +29,7 @@ async function getReportBalanceSheet(
   await activeClient.authenticate();
 
   const response = await activeClient.accountingApi.getReportBalanceSheet(
-    activeClient.tenantId,
+    getActiveXeroTenantId(),
     date || undefined,
     periods || undefined,
     timeframe || undefined,

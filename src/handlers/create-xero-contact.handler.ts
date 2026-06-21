@@ -1,6 +1,7 @@
 import {
   MCPXeroClient,
   getActiveXeroClient,
+  getActiveXeroTenantId,
   clientContext,
   resolveXeroClient,
 } from "../clients/xero-client.js";
@@ -31,7 +32,7 @@ async function createContact(
   };
 
   const response = await activeClient.accountingApi.createContacts(
-    activeClient.tenantId,
+    getActiveXeroTenantId(),
     {
       contacts: [contact],
     }, //contacts

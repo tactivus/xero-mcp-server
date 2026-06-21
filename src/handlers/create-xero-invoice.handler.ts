@@ -1,6 +1,7 @@
 import {
   MCPXeroClient,
   getActiveXeroClient,
+  getActiveXeroTenantId,
   clientContext,
   resolveXeroClient,
 } from "../clients/xero-client.js";
@@ -46,7 +47,7 @@ async function createInvoice(
   };
 
   const response = await activeClient.accountingApi.createInvoices(
-    activeClient.tenantId,
+    getActiveXeroTenantId(),
     {
       invoices: [invoice],
     }, // invoices
