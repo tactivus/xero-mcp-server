@@ -1,5 +1,10 @@
 import { TrackingOption } from "xero-node";
-import { xeroClient } from "../clients/xero-client.js";
+import {
+  MCPXeroClient,
+  getActiveXeroClient,
+  clientContext,
+  resolveXeroClient,
+} from "../clients/xero-client.js";
 import { formatError } from "../helpers/format-error.js";
 import { getClientHeaders } from "../helpers/get-client-headers.js";
 import { XeroClientResponse } from "../types/tool-response.js";
@@ -7,18 +12,21 @@ import { XeroClientResponse } from "../types/tool-response.js";
 type TrackingOptionStatus = "ACTIVE" | "ARCHIVED";
 
 interface TrackingOptionItem {
-  trackingOptionId: string,
-  name?: string,
-  status?: TrackingOptionStatus
+  trackingOptionId: string;
+  name?: string;
+  status?: TrackingOptionStatus;
 }
 
-async function getTrackingOptions(trackingCategoryId: string): Promise<TrackingOption[] | undefined> {
-  await xeroClient.authenticate();
+async function getTrackingOptions(
+  trackingCategoryId: string,
+): Promise<TrackingOption[] | undefined> {
+  const activeClient = getActiveXeroClient();
+  await activeClient.authenticate();
 
-  const response = await xeroClient.accountingApi.getTrackingCategory(
-    xeroClient.tenantId,
+  const response = await activeClient.accountingApi.getTrackingCategory(
+    activeClient.tenantId,
     trackingCategoryId,
-    getClientHeaders()
+    getClientHeaders(),
   );
 
   return response.body.trackingCategories?.[0].options;
@@ -29,21 +37,24 @@ async function updateTrackingOption(
   trackingOptionId: string,
   existingTrackingOption: TrackingOption,
   name?: string,
-  status?: TrackingOptionStatus
+  status?: TrackingOptionStatus,
 ): Promise<TrackingOption | undefined> {
+  const activeClient = getActiveXeroClient();
   const trackingOption: TrackingOption = {
     trackingOptionID: trackingOptionId,
     name: name ? name : existingTrackingOption.name,
-    status: status ? TrackingOption.StatusEnum[status] : existingTrackingOption.status
+    status: status
+      ? TrackingOption.StatusEnum[status]
+      : existingTrackingOption.status,
   };
 
-  await xeroClient.accountingApi.updateTrackingOptions(
-    xeroClient.tenantId,
+  await activeClient.accountingApi.updateTrackingOptions(
+    activeClient.tenantId,
     trackingCategoryId,
     trackingOptionId,
     trackingOption,
     undefined, // idempotencyKey
-    getClientHeaders()
+    getClientHeaders(),
   );
 
   return trackingOption;
@@ -51,41 +62,54 @@ async function updateTrackingOption(
 
 export async function updateXeroTrackingOption(
   trackingCategoryId: string,
-  options: TrackingOptionItem[]
+  options: TrackingOptionItem[],
+  client?: MCPXeroClient,
 ): Promise<XeroClientResponse<TrackingOption[]>> {
-  try {
+  return clientContext.run(resolveXeroClient(client), async () => {
+    try {
+      const existingTrackingOptions =
+        await getTrackingOptions(trackingCategoryId);
 
-    const existingTrackingOptions = await getTrackingOptions(trackingCategoryId);
+      if (!existingTrackingOptions) {
+        throw new Error("Could not find tracking options.");
+      }
 
-    if (!existingTrackingOptions) {
-      throw new Error("Could not find tracking options.");
+      const updatedTrackingOptions = await Promise.all(
+        options?.map(async (option) => {
+          const existingTrackingOption = existingTrackingOptions.find(
+            (existingOption) =>
+              existingOption.trackingOptionID === option.trackingOptionId,
+          );
+
+          return existingTrackingOption
+            ? await updateTrackingOption(
+                trackingCategoryId,
+                option.trackingOptionId,
+                existingTrackingOption,
+                option.name,
+                option.status,
+              )
+            : undefined;
+        }),
+      );
+
+      if (!updatedTrackingOptions) {
+        throw new Error("Failed to update tracking options.");
+      }
+
+      return {
+        result: updatedTrackingOptions
+          .filter(Boolean)
+          .map((option) => option as TrackingOption),
+        isError: false,
+        error: null,
+      };
+    } catch (error) {
+      return {
+        result: null,
+        isError: true,
+        error: formatError(error),
+      };
     }
-
-    const updatedTrackingOptions = await Promise.all(options?.map(async (option) => {
-      const existingTrackingOption = existingTrackingOptions
-        .find(existingOption => existingOption.trackingOptionID === option.trackingOptionId);
-
-      return existingTrackingOption
-        ? await updateTrackingOption(trackingCategoryId, option.trackingOptionId, existingTrackingOption, option.name, option.status)
-        : undefined;
-    }));
-
-    if (!updatedTrackingOptions) {
-      throw new Error("Failed to update tracking options.");
-    }
-
-    return {
-      result: updatedTrackingOptions
-        .filter(Boolean)
-        .map(option => option as TrackingOption),
-      isError: false,
-      error: null
-    };
-  } catch (error) {
-    return {
-      result: null,
-      isError: true,
-      error: formatError(error),
-    };
-  }
+  });
 }

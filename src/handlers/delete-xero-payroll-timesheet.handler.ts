@@ -1,12 +1,21 @@
-import { xeroClient } from "../clients/xero-client.js";
+import {
+  MCPXeroClient,
+  getActiveXeroClient,
+  clientContext,
+  resolveXeroClient,
+} from "../clients/xero-client.js";
 import { formatError } from "../helpers/format-error.js";
 import { XeroClientResponse } from "../types/tool-response.js";
 
 async function deleteTimesheet(timesheetID: string): Promise<boolean> {
-  await xeroClient.authenticate();
+  const activeClient = getActiveXeroClient();
+  await activeClient.authenticate();
 
   // Call the deleteTimesheet endpoint from the PayrollNZApi
-  await xeroClient.payrollNZApi.deleteTimesheet(xeroClient.tenantId, timesheetID);
+  await activeClient.payrollNZApi.deleteTimesheet(
+    activeClient.tenantId,
+    timesheetID,
+  );
 
   return true;
 }
@@ -14,22 +23,25 @@ async function deleteTimesheet(timesheetID: string): Promise<boolean> {
 /**
  * Delete an existing payroll timesheet in Xero
  */
-export async function deleteXeroPayrollTimesheet(timesheetID: string): Promise<
-  XeroClientResponse<boolean>
-> {
-  try {
-    await deleteTimesheet(timesheetID);
+export async function deleteXeroPayrollTimesheet(
+  timesheetID: string,
+  client?: MCPXeroClient,
+): Promise<XeroClientResponse<boolean>> {
+  return clientContext.run(resolveXeroClient(client), async () => {
+    try {
+      await deleteTimesheet(timesheetID);
 
-    return {
-      result: true,
-      isError: false,
-      error: null,
-    };
-  } catch (error) {
-    return {
-      result: null,
-      isError: true,
-      error: formatError(error),
-    };
-  }
+      return {
+        result: true,
+        isError: false,
+        error: null,
+      };
+    } catch (error) {
+      return {
+        result: null,
+        isError: true,
+        error: formatError(error),
+      };
+    }
+  });
 }

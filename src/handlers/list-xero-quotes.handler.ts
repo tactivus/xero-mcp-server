@@ -1,4 +1,9 @@
-import { xeroClient } from "../clients/xero-client.js";
+import {
+  MCPXeroClient,
+  getActiveXeroClient,
+  clientContext,
+  resolveXeroClient,
+} from "../clients/xero-client.js";
 import { XeroClientResponse } from "../types/tool-response.js";
 import { formatError } from "../helpers/format-error.js";
 import { Quote } from "xero-node";
@@ -9,10 +14,11 @@ async function getQuotes(
   page: number,
   quoteNumber: string | undefined,
 ): Promise<Quote[]> {
-  await xeroClient.authenticate();
+  const activeClient = getActiveXeroClient();
+  await activeClient.authenticate();
 
-  const quotes = await xeroClient.accountingApi.getQuotes(
-    xeroClient.tenantId,
+  const quotes = await activeClient.accountingApi.getQuotes(
+    activeClient.tenantId,
     undefined, // ifModifiedSince
     undefined, // dateFrom
     undefined, // dateTo
@@ -35,20 +41,23 @@ export async function listXeroQuotes(
   page: number = 1,
   contactId?: string,
   quoteNumber?: string,
+  client?: MCPXeroClient,
 ): Promise<XeroClientResponse<Quote[]>> {
-  try {
-    const quotes = await getQuotes(contactId, page, quoteNumber);
+  return clientContext.run(resolveXeroClient(client), async () => {
+    try {
+      const quotes = await getQuotes(contactId, page, quoteNumber);
 
-    return {
-      result: quotes,
-      isError: false,
-      error: null,
-    };
-  } catch (error) {
-    return {
-      result: null,
-      isError: true,
-      error: formatError(error),
-    };
-  }
+      return {
+        result: quotes,
+        isError: false,
+        error: null,
+      };
+    } catch (error) {
+      return {
+        result: null,
+        isError: true,
+        error: formatError(error),
+      };
+    }
+  });
 }

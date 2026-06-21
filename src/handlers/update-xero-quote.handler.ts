@@ -1,4 +1,9 @@
-import { xeroClient } from "../clients/xero-client.js";
+import {
+  MCPXeroClient,
+  getActiveXeroClient,
+  clientContext,
+  resolveXeroClient,
+} from "../clients/xero-client.js";
 import { XeroClientResponse } from "../types/tool-response.js";
 import { formatError } from "../helpers/format-error.js";
 import { Quote, QuoteStatusCodes } from "xero-node";
@@ -13,11 +18,12 @@ interface QuoteLineItem {
 }
 
 async function getQuote(quoteId: string): Promise<Quote | undefined> {
-  await xeroClient.authenticate();
+  const activeClient = getActiveXeroClient();
+  await activeClient.authenticate();
 
   // First, get the current quote to check its status
-  const response = await xeroClient.accountingApi.getQuote(
-    xeroClient.tenantId, // tenantId
+  const response = await activeClient.accountingApi.getQuote(
+    activeClient.tenantId, // tenantId
     quoteId, // quoteId
     getClientHeaders(), // options
   );
@@ -36,8 +42,9 @@ async function updateQuote(
   contactId?: string,
   date?: string,
   expiryDate?: string,
-  existingQuote?: Quote
+  existingQuote?: Quote,
 ): Promise<Quote | undefined> {
+  const activeClient = getActiveXeroClient();
   // Create quote object with only the fields that are being updated
   const quote: Quote = {
     lineItems: lineItems,
@@ -48,14 +55,14 @@ async function updateQuote(
     quoteNumber: quoteNumber,
     expiryDate: expiryDate,
   };
-  
+
   // Only add contact if contactId is provided, otherwise use existing
   if (contactId) {
     quote.contact = { contactID: contactId };
   } else if (existingQuote?.contact) {
     quote.contact = existingQuote.contact;
   }
-  
+
   // Only add date if provided, otherwise use existing
   if (date) {
     quote.date = date;
@@ -63,8 +70,8 @@ async function updateQuote(
     quote.date = existingQuote.date;
   }
 
-  const response = await xeroClient.accountingApi.updateQuote(
-    xeroClient.tenantId,
+  const response = await activeClient.accountingApi.updateQuote(
+    activeClient.tenantId,
     quoteId, // quoteId
     {
       quotes: [quote],
@@ -90,49 +97,52 @@ export async function updateXeroQuote(
   contactId?: string,
   date?: string,
   expiryDate?: string,
+  client?: MCPXeroClient,
 ): Promise<XeroClientResponse<Quote>> {
-  try {
-    const existingQuote = await getQuote(quoteId);
+  return clientContext.run(resolveXeroClient(client), async () => {
+    try {
+      const existingQuote = await getQuote(quoteId);
 
-    const quoteStatus = existingQuote?.status;
+      const quoteStatus = existingQuote?.status;
 
-    // Only allow updates to DRAFT quotes
-    if (quoteStatus !== QuoteStatusCodes.DRAFT) {
+      // Only allow updates to DRAFT quotes
+      if (quoteStatus !== QuoteStatusCodes.DRAFT) {
+        return {
+          result: null,
+          isError: true,
+          error: `Cannot update quote because it is not a draft. Current status: ${quoteStatus}`,
+        };
+      }
+
+      const updatedQuote = await updateQuote(
+        quoteId,
+        lineItems,
+        reference,
+        terms,
+        title,
+        summary,
+        quoteNumber,
+        contactId,
+        date,
+        expiryDate,
+        existingQuote,
+      );
+
+      if (!updatedQuote) {
+        throw new Error("Quote update failed.");
+      }
+
+      return {
+        result: updatedQuote,
+        isError: false,
+        error: null,
+      };
+    } catch (error) {
       return {
         result: null,
         isError: true,
-        error: `Cannot update quote because it is not a draft. Current status: ${quoteStatus}`,
+        error: formatError(error),
       };
     }
-
-    const updatedQuote = await updateQuote(
-      quoteId,
-      lineItems,
-      reference,
-      terms,
-      title,
-      summary,
-      quoteNumber,
-      contactId,
-      date,
-      expiryDate,
-      existingQuote
-    );
-
-    if (!updatedQuote) {
-      throw new Error("Quote update failed.");
-    }
-
-    return {
-      result: updatedQuote,
-      isError: false,
-      error: null,
-    };
-  } catch (error) {
-    return {
-      result: null,
-      isError: true,
-      error: formatError(error),
-    };
-  }
-} 
+  });
+}

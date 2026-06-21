@@ -3,12 +3,15 @@
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { XeroMcpServer } from "./server/xero-mcp-server.js";
 import { ToolFactory } from "./tools/tool-factory.js";
+import { getDefaultXeroClient } from "./clients/xero-client.js";
 
 const main = async () => {
+  const client = getDefaultXeroClient();
+
   // Create an MCP server
   const server = XeroMcpServer.GetServer();
 
-  ToolFactory(server);
+  ToolFactory(server, client);
 
   // Start receiving messages on stdin and sending messages on stdout
   const transport = new StdioServerTransport();

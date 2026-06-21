@@ -1,4 +1,9 @@
-import { xeroClient } from "../clients/xero-client.js";
+import {
+  MCPXeroClient,
+  getActiveXeroClient,
+  clientContext,
+  resolveXeroClient,
+} from "../clients/xero-client.js";
 import { XeroClientResponse } from "../types/tool-response.js";
 import { formatError } from "../helpers/format-error.js";
 import { Contact, Phone } from "xero-node";
@@ -9,7 +14,8 @@ async function createContact(
   email?: string,
   phone?: string,
 ): Promise<Contact | undefined> {
-  await xeroClient.authenticate();
+  const activeClient = getActiveXeroClient();
+  await activeClient.authenticate();
 
   const contact: Contact = {
     name,
@@ -24,8 +30,8 @@ async function createContact(
       : undefined,
   };
 
-  const response = await xeroClient.accountingApi.createContacts(
-    xeroClient.tenantId,
+  const response = await activeClient.accountingApi.createContacts(
+    activeClient.tenantId,
     {
       contacts: [contact],
     }, //contacts
@@ -44,24 +50,27 @@ export async function createXeroContact(
   name: string,
   email?: string,
   phone?: string,
+  client?: MCPXeroClient,
 ): Promise<XeroClientResponse<Contact>> {
-  try {
-    const createdContact = await createContact(name, email, phone);
+  return clientContext.run(resolveXeroClient(client), async () => {
+    try {
+      const createdContact = await createContact(name, email, phone);
 
-    if (!createdContact) {
-      throw new Error("Contact creation failed.");
+      if (!createdContact) {
+        throw new Error("Contact creation failed.");
+      }
+
+      return {
+        result: createdContact,
+        isError: false,
+        error: null,
+      };
+    } catch (error) {
+      return {
+        result: null,
+        isError: true,
+        error: formatError(error),
+      };
     }
-
-    return {
-      result: createdContact,
-      isError: false,
-      error: null,
-    };
-  } catch (error) {
-    return {
-      result: null,
-      isError: true,
-      error: formatError(error),
-    };
-  }
+  });
 }

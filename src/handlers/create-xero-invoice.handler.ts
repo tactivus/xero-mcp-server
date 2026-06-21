@@ -1,4 +1,9 @@
-import { xeroClient } from "../clients/xero-client.js";
+import {
+  MCPXeroClient,
+  getActiveXeroClient,
+  clientContext,
+  resolveXeroClient,
+} from "../clients/xero-client.js";
 import { XeroClientResponse } from "../types/tool-response.js";
 import { formatError } from "../helpers/format-error.js";
 import { Invoice, LineItemTracking } from "xero-node";
@@ -21,7 +26,8 @@ async function createInvoice(
   reference: string | undefined,
   date: string | undefined,
 ): Promise<Invoice | undefined> {
-  await xeroClient.authenticate();
+  const activeClient = getActiveXeroClient();
+  await activeClient.authenticate();
 
   const invoice: Invoice = {
     type: type,
@@ -39,8 +45,8 @@ async function createInvoice(
     status: Invoice.StatusEnum.DRAFT,
   };
 
-  const response = await xeroClient.accountingApi.createInvoices(
-    xeroClient.tenantId,
+  const response = await activeClient.accountingApi.createInvoices(
+    activeClient.tenantId,
     {
       invoices: [invoice],
     }, // invoices
@@ -62,30 +68,33 @@ export async function createXeroInvoice(
   type: Invoice.TypeEnum = Invoice.TypeEnum.ACCREC,
   reference?: string,
   date?: string,
+  client?: MCPXeroClient,
 ): Promise<XeroClientResponse<Invoice>> {
-  try {
-    const createdInvoice = await createInvoice(
-      contactId,
-      lineItems,
-      type,
-      reference,
-      date,
-    );
+  return clientContext.run(resolveXeroClient(client), async () => {
+    try {
+      const createdInvoice = await createInvoice(
+        contactId,
+        lineItems,
+        type,
+        reference,
+        date,
+      );
 
-    if (!createdInvoice) {
-      throw new Error("Invoice creation failed.");
+      if (!createdInvoice) {
+        throw new Error("Invoice creation failed.");
+      }
+
+      return {
+        result: createdInvoice,
+        isError: false,
+        error: null,
+      };
+    } catch (error) {
+      return {
+        result: null,
+        isError: true,
+        error: formatError(error),
+      };
     }
-
-    return {
-      result: createdInvoice,
-      isError: false,
-      error: null,
-    };
-  } catch (error) {
-    return {
-      result: null,
-      isError: true,
-      error: formatError(error),
-    };
-  }
+  });
 }

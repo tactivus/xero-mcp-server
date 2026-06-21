@@ -4,7 +4,12 @@ import {
   ManualJournalLine,
   ManualJournals,
 } from "xero-node";
-import { xeroClient } from "../clients/xero-client.js";
+import {
+  MCPXeroClient,
+  getActiveXeroClient,
+  clientContext,
+  resolveXeroClient,
+} from "../clients/xero-client.js";
 import { getClientHeaders } from "../helpers/get-client-headers.js";
 import { XeroClientResponse } from "../types/tool-response.js";
 import { formatError } from "../helpers/format-error.js";
@@ -18,7 +23,8 @@ async function createManualJournal(
   url?: string,
   showOnCashBasisReports?: boolean,
 ): Promise<ManualJournal | undefined> {
-  await xeroClient.authenticate();
+  const activeClient = getActiveXeroClient();
+  await activeClient.authenticate();
 
   const manualJournal: ManualJournal = {
     narration,
@@ -40,8 +46,8 @@ async function createManualJournal(
     manualJournals: [manualJournal],
   };
 
-  const response = await xeroClient.accountingApi.createManualJournals(
-    xeroClient.tenantId,
+  const response = await activeClient.accountingApi.createManualJournals(
+    activeClient.tenantId,
     manualJournals,
     true,
     undefined,
@@ -70,32 +76,35 @@ export async function createXeroManualJournal(
   status?: ManualJournal.StatusEnum,
   url?: string,
   showOnCashBasisReports?: boolean,
+  client?: MCPXeroClient,
 ): Promise<XeroClientResponse<ManualJournal>> {
-  try {
-    const createdManualJournal = await createManualJournal(
-      narration,
-      manualJournalLines,
-      date,
-      lineAmountTypes,
-      status,
-      url,
-      showOnCashBasisReports,
-    );
+  return clientContext.run(resolveXeroClient(client), async () => {
+    try {
+      const createdManualJournal = await createManualJournal(
+        narration,
+        manualJournalLines,
+        date,
+        lineAmountTypes,
+        status,
+        url,
+        showOnCashBasisReports,
+      );
 
-    if (!createdManualJournal) {
-      throw new Error("Manual journal creation failed.");
+      if (!createdManualJournal) {
+        throw new Error("Manual journal creation failed.");
+      }
+
+      return {
+        result: createdManualJournal,
+        isError: false,
+        error: null,
+      };
+    } catch (error) {
+      return {
+        result: null,
+        isError: true,
+        error: formatError(error),
+      };
     }
-
-    return {
-      result: createdManualJournal,
-      isError: false,
-      error: null,
-    };
-  } catch (error) {
-    return {
-      result: null,
-      isError: true,
-      error: formatError(error),
-    };
-  }
+  });
 }

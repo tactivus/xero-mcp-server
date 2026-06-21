@@ -1,4 +1,9 @@
-import { xeroClient } from "../clients/xero-client.js";
+import {
+  MCPXeroClient,
+  getActiveXeroClient,
+  clientContext,
+  resolveXeroClient,
+} from "../clients/xero-client.js";
 import { XeroClientResponse } from "../types/tool-response.js";
 import { formatError } from "../helpers/format-error.js";
 import { LeavePeriod } from "../types/payroll-nz-types.js";
@@ -17,14 +22,15 @@ async function fetchLeavePeriods({
   startDate,
   endDate,
 }: FetchLeavePeriodParams): Promise<LeavePeriod[] | null> {
-  await xeroClient.authenticate();
+  const activeClient = getActiveXeroClient();
+  await activeClient.authenticate();
 
   if (!employeeId) {
     throw new Error("Employee ID is required to fetch leave periods");
-  }  // After reviewing the SDK documentation, it appears this API call requires different parameters
+  } // After reviewing the SDK documentation, it appears this API call requires different parameters
   // Use parameters that match the SDK's expectations
-  const response = await xeroClient.payrollNZApi.getEmployeeLeavePeriods(
-    xeroClient.tenantId,
+  const response = await activeClient.payrollNZApi.getEmployeeLeavePeriods(
+    activeClient.tenantId,
     employeeId,
     startDate,
     endDate,
@@ -43,28 +49,35 @@ export async function listXeroPayrollLeavePeriods(
   employeeId: string,
   startDate?: string,
   endDate?: string,
+  client?: MCPXeroClient,
 ): Promise<XeroClientResponse<LeavePeriod[]>> {
-  try {
-    const periods = await fetchLeavePeriods({ employeeId, startDate, endDate });
+  return clientContext.run(resolveXeroClient(client), async () => {
+    try {
+      const periods = await fetchLeavePeriods({
+        employeeId,
+        startDate,
+        endDate,
+      });
 
-    if (!periods) {
+      if (!periods) {
+        return {
+          result: [],
+          isError: false,
+          error: null,
+        };
+      }
+
       return {
-        result: [],
+        result: periods,
         isError: false,
         error: null,
       };
+    } catch (error) {
+      return {
+        result: null,
+        isError: true,
+        error: formatError(error),
+      };
     }
-
-    return {
-      result: periods,
-      isError: false,
-      error: null,
-    };
-  } catch (error) {
-    return {
-      result: null,
-      isError: true,
-      error: formatError(error),
-    };
-  }
+  });
 }

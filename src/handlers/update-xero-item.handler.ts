@@ -1,4 +1,9 @@
-import { xeroClient } from "../clients/xero-client.js";
+import {
+  MCPXeroClient,
+  getActiveXeroClient,
+  clientContext,
+  resolveXeroClient,
+} from "../clients/xero-client.js";
 import { XeroClientResponse } from "../types/tool-response.js";
 import { formatError } from "../helpers/format-error.js";
 import { Item, Items } from "xero-node";
@@ -25,9 +30,10 @@ interface ItemDetails {
 
 async function updateItem(
   itemId: string,
-  itemDetails: ItemDetails
+  itemDetails: ItemDetails,
 ): Promise<Item | null> {
-  await xeroClient.authenticate();
+  const activeClient = getActiveXeroClient();
+  await activeClient.authenticate();
 
   const item: Partial<Item> = {
     code: itemDetails.code,
@@ -44,13 +50,13 @@ async function updateItem(
     items: [item as Item],
   };
 
-  const response = await xeroClient.accountingApi.updateItem(
-    xeroClient.tenantId,
+  const response = await activeClient.accountingApi.updateItem(
+    activeClient.tenantId,
     itemId,
     items,
     undefined, // unitdp
     undefined, // idempotencyKey
-    getClientHeaders()
+    getClientHeaders(),
   );
 
   return response.body.items?.[0] ?? null;
@@ -64,21 +70,24 @@ async function updateItem(
  */
 export async function updateXeroItem(
   itemId: string,
-  itemDetails: ItemDetails
+  itemDetails: ItemDetails,
+  client?: MCPXeroClient,
 ): Promise<XeroClientResponse<Item | null>> {
-  try {
-    const item = await updateItem(itemId, itemDetails);
+  return clientContext.run(resolveXeroClient(client), async () => {
+    try {
+      const item = await updateItem(itemId, itemDetails);
 
-    return {
-      result: item,
-      isError: false,
-      error: null,
-    };
-  } catch (error) {
-    return {
-      result: null,
-      isError: true,
-      error: formatError(error),
-    };
-  }
-} 
+      return {
+        result: item,
+        isError: false,
+        error: null,
+      };
+    } catch (error) {
+      return {
+        result: null,
+        isError: true,
+        error: formatError(error),
+      };
+    }
+  });
+}

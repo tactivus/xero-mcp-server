@@ -1,5 +1,6 @@
 import axios, { AxiosError } from "axios";
 import dotenv from "dotenv";
+import { AsyncLocalStorage } from "async_hooks";
 import {
   IXeroClientConfig,
   Organisation,
@@ -9,18 +10,23 @@ import {
 
 import { ensureError } from "../helpers/ensure-error.js";
 
-dotenv.config();
+export const clientContext = new AsyncLocalStorage<MCPXeroClient>();
 
-const client_id = process.env.XERO_CLIENT_ID;
-const client_secret = process.env.XERO_CLIENT_SECRET;
-const bearer_token = process.env.XERO_CLIENT_BEARER_TOKEN;
-const grant_type = "client_credentials";
-
-if (!bearer_token && (!client_id || !client_secret)) {
-  throw Error("Environment Variables not set - please check your .env file");
+export function getActiveXeroClient(): MCPXeroClient {
+  const client = clientContext.getStore();
+  if (!client) {
+    throw new Error(
+      "No active Xero client context. Pass a client or run inside clientContext.run().",
+    );
+  }
+  return client;
 }
 
-abstract class MCPXeroClient extends XeroClient {
+export function resolveXeroClient(client?: MCPXeroClient): MCPXeroClient {
+  return client ?? getActiveXeroClient();
+}
+
+export abstract class MCPXeroClient extends XeroClient {
   public tenantId: string;
   private shortCode: string;
 
@@ -74,9 +80,10 @@ abstract class MCPXeroClient extends XeroClient {
   }
 }
 
-class CustomConnectionsXeroClient extends MCPXeroClient {
+export class CustomConnectionsXeroClient extends MCPXeroClient {
   private readonly clientId: string;
   private readonly clientSecret: string;
+  private readonly scopes?: string;
 
   // Legacy scopes (deprecated but still supported for existing apps)
   private readonly XERO_DEFAULT_AUTH_SCOPES_V1 = [
@@ -110,27 +117,35 @@ class CustomConnectionsXeroClient extends MCPXeroClient {
     clientId: string;
     clientSecret: string;
     grantType: string;
+    scopes?: string;
   }) {
-    super(config);
+    super({
+      clientId: config.clientId,
+      clientSecret: config.clientSecret,
+      grantType: config.grantType,
+    });
     this.clientId = config.clientId;
     this.clientSecret = config.clientSecret;
+    this.scopes = config.scopes;
   }
 
   private formatTokenError(error: unknown, context: string): Error {
     const axiosError = error as AxiosError;
     const data = axiosError.response?.data;
     const message =
-      typeof data === "object" ? JSON.stringify(data) : data || axiosError.message;
+      typeof data === "object"
+        ? JSON.stringify(data)
+        : data || axiosError.message;
     return new Error(`Failed to get Xero token${context}: ${message}`);
   }
 
   public async getClientCredentialsToken(): Promise<TokenSet> {
-    // If XERO_SCOPES is set, use that
-    if (process.env.XERO_SCOPES) {                                                                                                                                                     
+    // If explicit scopes are configured, use them.
+    if (this.scopes) {
       try {
-        return await this.requestToken(process.env.XERO_SCOPES);
+        return await this.requestToken(this.scopes);
       } catch (envError) {
-        throw this.formatTokenError(envError, " with XERO_SCOPES");
+        throw this.formatTokenError(envError, " with configured scopes");
       }
     }
 
@@ -203,7 +218,7 @@ class CustomConnectionsXeroClient extends MCPXeroClient {
   }
 }
 
-class BearerTokenXeroClient extends MCPXeroClient {
+export class BearerTokenXeroClient extends MCPXeroClient {
   private readonly bearerToken: string;
 
   constructor(config: { bearerToken: string }) {
@@ -220,12 +235,66 @@ class BearerTokenXeroClient extends MCPXeroClient {
   }
 }
 
-export const xeroClient = bearer_token
-  ? new BearerTokenXeroClient({
-      bearerToken: bearer_token,
-    })
-  : new CustomConnectionsXeroClient({
-      clientId: client_id!,
-      clientSecret: client_secret!,
-      grantType: grant_type,
+export function createXeroClient(config: {
+  clientId?: string;
+  clientSecret?: string;
+  bearerToken?: string;
+  grantType?: string;
+  scopes?: string;
+}): MCPXeroClient {
+  if (config.bearerToken) {
+    return new BearerTokenXeroClient({
+      bearerToken: config.bearerToken,
     });
+  }
+  if (config.clientId && config.clientSecret) {
+    return new CustomConnectionsXeroClient({
+      clientId: config.clientId,
+      clientSecret: config.clientSecret,
+      grantType: config.grantType || "client_credentials",
+      scopes: config.scopes,
+    });
+  }
+  throw new Error(
+    "Invalid Xero client configuration. Either bearerToken or clientId/clientSecret must be provided.",
+  );
+}
+
+let defaultXeroClient: MCPXeroClient | null = null;
+
+export function getDefaultXeroClient(): MCPXeroClient {
+  if (defaultXeroClient) {
+    return defaultXeroClient;
+  }
+
+  dotenv.config();
+
+  const clientId = process.env.XERO_CLIENT_ID;
+  const clientSecret = process.env.XERO_CLIENT_SECRET;
+  const bearerToken = process.env.XERO_CLIENT_BEARER_TOKEN;
+  const scopes = process.env.XERO_SCOPES;
+  const grantType = "client_credentials";
+
+  if (!bearerToken && (!clientId || !clientSecret)) {
+    throw new Error(
+      "Environment Variables not set - please check your .env file",
+    );
+  }
+
+  defaultXeroClient = bearerToken
+    ? new BearerTokenXeroClient({
+        bearerToken,
+      })
+    : new CustomConnectionsXeroClient({
+        clientId: clientId!,
+        clientSecret: clientSecret!,
+        grantType,
+        scopes,
+      });
+
+  return defaultXeroClient;
+}
+
+export function resetDefaultXeroClient(): void {
+  defaultXeroClient = null;
+}

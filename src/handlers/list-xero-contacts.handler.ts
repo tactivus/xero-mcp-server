@@ -1,14 +1,23 @@
-import { xeroClient } from "../clients/xero-client.js";
+import {
+  MCPXeroClient,
+  getActiveXeroClient,
+  clientContext,
+  resolveXeroClient,
+} from "../clients/xero-client.js";
 import { Contact } from "xero-node";
 import { XeroClientResponse } from "../types/tool-response.js";
 import { formatError } from "../helpers/format-error.js";
 import { getClientHeaders } from "../helpers/get-client-headers.js";
 
-async function getContacts(page?: number, searchTerm?: string): Promise<Contact[]> {
-  await xeroClient.authenticate();
+async function getContacts(
+  page?: number,
+  searchTerm?: string,
+): Promise<Contact[]> {
+  const activeClient = getActiveXeroClient();
+  await activeClient.authenticate();
 
-  const contacts = await xeroClient.accountingApi.getContacts(
-    xeroClient.tenantId,
+  const contacts = await activeClient.accountingApi.getContacts(
+    activeClient.tenantId,
     undefined, // ifModifiedSince
     undefined, // where
     undefined, // order
@@ -26,22 +35,26 @@ async function getContacts(page?: number, searchTerm?: string): Promise<Contact[
 /**
  * List all contacts from Xero
  */
-export async function listXeroContacts(page?: number, searchTerm?: string): Promise<
-  XeroClientResponse<Contact[]>
-> {
-  try {
-    const contacts = await getContacts(page, searchTerm);
+export async function listXeroContacts(
+  page?: number,
+  searchTerm?: string,
+  client?: MCPXeroClient,
+): Promise<XeroClientResponse<Contact[]>> {
+  return clientContext.run(resolveXeroClient(client), async () => {
+    try {
+      const contacts = await getContacts(page, searchTerm);
 
-    return {
-      result: contacts,
-      isError: false,
-      error: null,
-    };
-  } catch (error) {
-    return {
-      result: null,
-      isError: true,
-      error: formatError(error),
-    };
-  }
+      return {
+        result: contacts,
+        isError: false,
+        error: null,
+      };
+    } catch (error) {
+      return {
+        result: null,
+        isError: true,
+        error: formatError(error),
+      };
+    }
+  });
 }

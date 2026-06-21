@@ -1,4 +1,9 @@
-import { xeroClient } from "../clients/xero-client.js";
+import {
+  MCPXeroClient,
+  getActiveXeroClient,
+  clientContext,
+  resolveXeroClient,
+} from "../clients/xero-client.js";
 import { XeroClientResponse } from "../types/tool-response.js";
 import { formatError } from "../helpers/format-error.js";
 import { Payment } from "xero-node";
@@ -19,7 +24,8 @@ async function createPayment({
   date,
   reference,
 }: PaymentProps): Promise<Payment | undefined> {
-  await xeroClient.authenticate();
+  const activeClient = getActiveXeroClient();
+  await activeClient.authenticate();
 
   const payment: Payment = {
     invoice: {
@@ -33,8 +39,8 @@ async function createPayment({
     reference: reference,
   };
 
-  const response = await xeroClient.accountingApi.createPayment(
-    xeroClient.tenantId,
+  const response = await activeClient.accountingApi.createPayment(
+    activeClient.tenantId,
     payment,
     undefined, // idempotencyKey
     getClientHeaders(), // options
@@ -46,36 +52,35 @@ async function createPayment({
 /**
  * Create a new payment in Xero
  */
-export async function createXeroPayment({
-  invoiceId,
-  accountId,
-  amount,
-  date,
-  reference,
-}: PaymentProps): Promise<XeroClientResponse<Payment>> {
-  try {
-    const createdPayment = await createPayment({
-      invoiceId,
-      accountId,
-      amount,
-      date,
-      reference,
-    });
+export async function createXeroPayment(
+  { invoiceId, accountId, amount, date, reference }: PaymentProps,
+  client?: MCPXeroClient,
+): Promise<XeroClientResponse<Payment>> {
+  return clientContext.run(resolveXeroClient(client), async () => {
+    try {
+      const createdPayment = await createPayment({
+        invoiceId,
+        accountId,
+        amount,
+        date,
+        reference,
+      });
 
-    if (!createdPayment) {
-      throw new Error("Payment creation failed.");
+      if (!createdPayment) {
+        throw new Error("Payment creation failed.");
+      }
+
+      return {
+        result: createdPayment,
+        isError: false,
+        error: null,
+      };
+    } catch (error) {
+      return {
+        result: null,
+        isError: true,
+        error: formatError(error),
+      };
     }
-
-    return {
-      result: createdPayment,
-      isError: false,
-      error: null,
-    };
-  } catch (error) {
-    return {
-      result: null,
-      isError: true,
-      error: formatError(error),
-    };
-  }
+  });
 }

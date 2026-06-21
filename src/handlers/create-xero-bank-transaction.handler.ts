@@ -1,4 +1,9 @@
-import { xeroClient } from "../clients/xero-client.js";
+import {
+  MCPXeroClient,
+  getActiveXeroClient,
+  clientContext,
+  resolveXeroClient,
+} from "../clients/xero-client.js";
 import { XeroClientResponse } from "../types/tool-response.js";
 import { BankTransaction } from "xero-node";
 import { formatError } from "../helpers/format-error.js";
@@ -20,33 +25,34 @@ async function createBankTransaction(
   contactId: string,
   lineItems: BankTransactionLineItem[],
   reference?: string,
-  date?: string
+  date?: string,
 ): Promise<BankTransaction | undefined> {
-  await xeroClient.authenticate();
+  const activeClient = getActiveXeroClient();
+  await activeClient.authenticate();
 
   const bankTransaction: BankTransaction = {
     type: BankTransaction.TypeEnum[type],
     bankAccount: {
-      accountID: bankAccountId
+      accountID: bankAccountId,
     },
     contact: {
-      contactID: contactId
+      contactID: contactId,
     },
     lineItems: lineItems,
     date: date ?? new Date().toISOString().split("T")[0],
     reference: reference,
-    status: BankTransaction.StatusEnum.AUTHORISED
+    status: BankTransaction.StatusEnum.AUTHORISED,
   };
 
-  const response = await xeroClient.accountingApi.createBankTransactions(
-    xeroClient.tenantId, // xeroTenantId
+  const response = await activeClient.accountingApi.createBankTransactions(
+    activeClient.tenantId, // xeroTenantId
     {
-      bankTransactions: [bankTransaction]
+      bankTransactions: [bankTransaction],
     }, // bankTransactions
     true, // summarizeErrors
     undefined, // unitdp
     undefined, // idempotencyKey
-    getClientHeaders()
+    getClientHeaders(),
   );
 
   const createdBankTransaction = response.body.bankTransactions?.[0];
@@ -60,25 +66,35 @@ export async function createXeroBankTransaction(
   contactId: string,
   lineItems: BankTransactionLineItem[],
   reference?: string,
-  date?: string
+  date?: string,
+  client?: MCPXeroClient,
 ): Promise<XeroClientResponse<BankTransaction>> {
-  try {
-    const createdTransaction = await createBankTransaction(type, bankAccountId, contactId, lineItems, reference, date);
-  
-    if (!createdTransaction) {
-      throw new Error("Bank transaction creation failed.");
-    }
+  return clientContext.run(resolveXeroClient(client), async () => {
+    try {
+      const createdTransaction = await createBankTransaction(
+        type,
+        bankAccountId,
+        contactId,
+        lineItems,
+        reference,
+        date,
+      );
 
-    return {
-      result: createdTransaction,
-      isError: false,
-      error: null
-    };
-  } catch (error) {
-    return {
-      result: null,
-      isError: true,
-      error: formatError(error)  
-    };
-  }
+      if (!createdTransaction) {
+        throw new Error("Bank transaction creation failed.");
+      }
+
+      return {
+        result: createdTransaction,
+        isError: false,
+        error: null,
+      };
+    } catch (error) {
+      return {
+        result: null,
+        isError: true,
+        error: formatError(error),
+      };
+    }
+  });
 }

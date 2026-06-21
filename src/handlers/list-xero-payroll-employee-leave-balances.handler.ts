@@ -1,4 +1,9 @@
-import { xeroClient } from "../clients/xero-client.js";
+import {
+  MCPXeroClient,
+  getActiveXeroClient,
+  clientContext,
+  resolveXeroClient,
+} from "../clients/xero-client.js";
 import { XeroClientResponse } from "../types/tool-response.js";
 import { formatError } from "../helpers/format-error.js";
 import { getClientHeaders } from "../helpers/get-client-headers.js";
@@ -7,15 +12,18 @@ import { EmployeeLeaveBalance } from "../types/payroll-nz-types.js";
 /**
  * Internal function to fetch employee leave balances from Xero
  */
-async function fetchEmployeeLeaveBalances(employeeId: string): Promise<EmployeeLeaveBalance[] | null> {
-  await xeroClient.authenticate();
+async function fetchEmployeeLeaveBalances(
+  employeeId: string,
+): Promise<EmployeeLeaveBalance[] | null> {
+  const activeClient = getActiveXeroClient();
+  await activeClient.authenticate();
 
   if (!employeeId) {
     throw new Error("Employee ID is required to fetch employee leave balances");
   }
 
-  const response = await xeroClient.payrollNZApi.getEmployeeLeaveBalances(
-    xeroClient.tenantId,
+  const response = await activeClient.payrollNZApi.getEmployeeLeaveBalances(
+    activeClient.tenantId,
     employeeId,
     getClientHeaders(),
   );
@@ -29,28 +37,31 @@ async function fetchEmployeeLeaveBalances(employeeId: string): Promise<EmployeeL
  */
 export async function listXeroPayrollEmployeeLeaveBalances(
   employeeId: string,
+  client?: MCPXeroClient,
 ): Promise<XeroClientResponse<EmployeeLeaveBalance[]>> {
-  try {
-    const leaveBalances = await fetchEmployeeLeaveBalances(employeeId);
+  return clientContext.run(resolveXeroClient(client), async () => {
+    try {
+      const leaveBalances = await fetchEmployeeLeaveBalances(employeeId);
 
-    if (!leaveBalances) {
+      if (!leaveBalances) {
+        return {
+          result: [],
+          isError: false,
+          error: null,
+        };
+      }
+
       return {
-        result: [],
+        result: leaveBalances,
         isError: false,
         error: null,
       };
+    } catch (error) {
+      return {
+        result: null,
+        isError: true,
+        error: formatError(error),
+      };
     }
-
-    return {
-      result: leaveBalances,
-      isError: false,
-      error: null,
-    };
-  } catch (error) {
-    return {
-      result: null,
-      isError: true,
-      error: formatError(error),
-    };
-  }
+  });
 }

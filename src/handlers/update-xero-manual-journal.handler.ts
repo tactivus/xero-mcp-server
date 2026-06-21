@@ -4,7 +4,12 @@ import {
   ManualJournalLine,
   ManualJournals,
 } from "xero-node";
-import { xeroClient } from "../clients/xero-client.js";
+import {
+  MCPXeroClient,
+  getActiveXeroClient,
+  clientContext,
+  resolveXeroClient,
+} from "../clients/xero-client.js";
 import { getClientHeaders } from "../helpers/get-client-headers.js";
 import { XeroClientResponse } from "../types/tool-response.js";
 import { formatError } from "../helpers/format-error.js";
@@ -19,7 +24,8 @@ async function updateManualJournal(
   url?: string,
   showOnCashBasisReports?: boolean,
 ): Promise<ManualJournal | undefined> {
-  await xeroClient.authenticate();
+  const activeClient = getActiveXeroClient();
+  await activeClient.authenticate();
 
   const manualJournal: ManualJournal = {
     narration,
@@ -41,8 +47,8 @@ async function updateManualJournal(
     manualJournals: [manualJournal],
   };
 
-  const response = await xeroClient.accountingApi.updateManualJournal(
-    xeroClient.tenantId,
+  const response = await activeClient.accountingApi.updateManualJournal(
+    activeClient.tenantId,
     manualJournalID,
     manualJournals,
     undefined,
@@ -61,33 +67,36 @@ export async function updateXeroManualJournal(
   status?: ManualJournal.StatusEnum,
   url?: string,
   showOnCashBasisReports?: boolean,
+  client?: MCPXeroClient,
 ): Promise<XeroClientResponse<ManualJournal>> {
-  try {
-    const updatedManualJournal = await updateManualJournal(
-      narration,
-      manualJournalID,
-      manualJournalLines,
-      date,
-      lineAmountTypes,
-      status,
-      url,
-      showOnCashBasisReports,
-    );
+  return clientContext.run(resolveXeroClient(client), async () => {
+    try {
+      const updatedManualJournal = await updateManualJournal(
+        narration,
+        manualJournalID,
+        manualJournalLines,
+        date,
+        lineAmountTypes,
+        status,
+        url,
+        showOnCashBasisReports,
+      );
 
-    if (!updatedManualJournal) {
-      throw new Error("Manual journal update failed.");
+      if (!updatedManualJournal) {
+        throw new Error("Manual journal update failed.");
+      }
+
+      return {
+        result: updatedManualJournal,
+        isError: false,
+        error: null,
+      };
+    } catch (error) {
+      return {
+        result: null,
+        isError: true,
+        error: formatError(error),
+      };
     }
-
-    return {
-      result: updatedManualJournal,
-      isError: false,
-      error: null,
-    };
-  } catch (error) {
-    return {
-      result: null,
-      isError: true,
-      error: formatError(error),
-    };
-  }
+  });
 }

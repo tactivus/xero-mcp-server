@@ -1,4 +1,9 @@
-import { xeroClient } from "../clients/xero-client.js";
+import {
+  MCPXeroClient,
+  getActiveXeroClient,
+  clientContext,
+  resolveXeroClient,
+} from "../clients/xero-client.js";
 import { XeroClientResponse } from "../types/tool-response.js";
 import { formatError } from "../helpers/format-error.js";
 import { getClientHeaders } from "../helpers/get-client-headers.js";
@@ -12,19 +17,22 @@ interface FetchEmployeeLeaveParams {
 /**
  * Internal function to fetch employee leave from Xero
  */
-async function fetchEmployeeLeave({ employeeId }: FetchEmployeeLeaveParams): Promise<EmployeeLeave[] | null> {
-  await xeroClient.authenticate();
+async function fetchEmployeeLeave({
+  employeeId,
+}: FetchEmployeeLeaveParams): Promise<EmployeeLeave[] | null> {
+  const activeClient = getActiveXeroClient();
+  await activeClient.authenticate();
 
   if (!employeeId) {
     throw new Error("Employee ID is required to fetch employee leave");
   }
 
-  const response = await xeroClient.payrollNZApi.getEmployeeLeaves(
-    xeroClient.tenantId,
+  const response = await activeClient.payrollNZApi.getEmployeeLeaves(
+    activeClient.tenantId,
     employeeId,
     {
-      headers: getClientHeaders().headers
-    }
+      headers: getClientHeaders().headers,
+    },
   );
 
   return response.body.leave ?? null;
@@ -36,28 +44,31 @@ async function fetchEmployeeLeave({ employeeId }: FetchEmployeeLeaveParams): Pro
  */
 export async function listXeroPayrollEmployeeLeave(
   employeeId: string,
+  client?: MCPXeroClient,
 ): Promise<XeroClientResponse<EmployeeLeave[]>> {
-  try {
-    const leave = await fetchEmployeeLeave({ employeeId });
+  return clientContext.run(resolveXeroClient(client), async () => {
+    try {
+      const leave = await fetchEmployeeLeave({ employeeId });
 
-    if (!leave) {
+      if (!leave) {
+        return {
+          result: [],
+          isError: false,
+          error: null,
+        };
+      }
+
       return {
-        result: [],
+        result: leave,
         isError: false,
         error: null,
       };
+    } catch (error) {
+      return {
+        result: null,
+        isError: true,
+        error: formatError(error),
+      };
     }
-
-    return {
-      result: leave,
-      isError: false,
-      error: null,
-    };
-  } catch (error) {
-    return {
-      result: null,
-      isError: true,
-      error: formatError(error),
-    };
-  }
+  });
 }
